@@ -36,6 +36,8 @@ It looks like only 6.8 GB/s are usable with LPDDR4, not 25.60. This will limit t
 
 ## Running an LLM on the Jetson
 
+See [Nvidia Jetson AI Lab](https://www.jetson-ai-lab.com/index.html), it generally starts with the Jetson Orin Nano. The orignal Jetson is only there for comparison. For example the [Ollama tutorial](https://www.jetson-ai-lab.com/tutorial_ollama.html) not even mention the 4GB Orin model, and lists [JetPack 5](https://developer.nvidia.com/embedded/jetpack-sdk-514) (L4T r35.x) and [JetPack 6](https://developer.nvidia.com/embedded/jetpack-sdk-62) (L4T r36.x) as requirements. The [latest JetPack](https://developer.nvidia.com/embedded/jetpack) for the original Jetson Nano is [JetPack 4.6.6](https://developer.nvidia.com/jetpack-sdk-466) - see [the archive](https://developer.nvidia.com/embedded/jetpack-archive).
+
 ### 1) Ollama with CPU
 
 You can install [ollama](https://ollama.com/) on this machine. And it does run llama3.2:1b with __3.77 token/s__ at 100% CPU. Is it possible to get GPU acceleration? The hardware should be able to, since Cuda CC >= 5.0 is required, and the Jetson has CC 5.3.
@@ -76,27 +78,15 @@ $ export LD_LIBRARY_PATH=/usr/local/cuda/lib64\
 
 The recommended version of llama.cpp to check out is [a33e6a0](https://github.com/ggerganov/llama.cpp/commit/a33e6a0d2a66104ea9a906bdbf8a94d050189d91) from February 26, 2024. The current version of the Makefile has entries for the Jetson [in line 476](https://github.com/ggerganov/llama.cpp/blob/2e2f8f093cd4fb6bbb87ba84f6b9684fa082f3fa/Makefile#L476). It could well be that this only refers to run on the CPU (as with the mentioned Raspberry Pi's) and not using the GPU with CUDA. This aligns with the [error message by VViliams123](https://gist.github.com/FlorSanders/2cf043f7161f52aa4b18fb3a1ab6022f?permalink_comment_id=5219170#gistcomment-5219170) on October 4, 2024.
 
-### 3) POCL - Portable CL on the Jetson?
+## OpenCL with POCL - Portable CL on the Jetson?
 
-An [article on Medium](https://yunusmuhammad007.medium.com/build-and-install-opencl-on-jetson-nano-10bf4a7f0e65) from September 2021 describes the installation of [PoCL](https://github.com/pocl/pocl) 1.7 on the Jetson Nano. By 2024 version 6.0 is the latest one, but it's not supported by PoCL. The reason [is described here](https://largo.lip6.fr/monolithe/admin_pocl/), and related to the old Ubuntu 18.04. That's why the latest version that can be installed is PoCL 3.0. This has been done successfully in October 2022
+An [article on Medium](https://yunusmuhammad007.medium.com/build-and-install-opencl-on-jetson-nano-10bf4a7f0e65) from September 2021 describes the installation of [PoCL](https://github.com/pocl/pocl) 1.7 on the Jetson Nano. By 2024 version 6.0 is the latest one, but it's not supported by PoCL. The reason [is described here](https://largo.lip6.fr/monolithe/admin_pocl/), and related to the old Ubuntu 18.04. That's why the latest version that can be installed is PoCL 3.0. This has been done successfully in October 2022.
 
-On "old" Jetson boards (TX2, Xavier NX, AGX Xavier & Nano), it is not possible to install recent PoCL version 5 because the OS is too old (Ubuntu 18.04) and it is complicated to install a recent version of the required Clang compiler (version 17). This is why on these specific boards we will install PoCL version 3. One of the main drawback is that there is no GPU 16-bit float support in this version :-(.
+On "old" Jetson boards (TX2, Xavier NX, AGX Xavier & Nano), it is not possible to install recent PoCL version 5 because the OS is too old (Ubuntu 18.04) and it is complicated to install a recent version of the required Clang compiler (version 17). This is why on these specific boards we will install PoCL version 3. One of the main drawback is that there is no GPU 16-bit float support in this version 😔.
 
-#### Install LLVM
 
-Install the LLVM for ARM64 and Jetson Nano on Ubuntu 18.04 ([source](https://largo.lip6.fr/monolithe/admin_pocl/)):
 
-``` bash
-export LLVM_VERSION=10
-sudo apt install -y build-essential ocl-icd-libopencl1 cmake git pkg-config libclang-${LLVM_VERSION}-dev clang-${LLVM_VERSION} llvm-${LLVM_VERSION} make ninja-build ocl-icd-libopencl1 ocl-icd-dev ocl-icd-opencl-dev libhwloc-dev zlib1g zlib1g-dev clinfo dialog apt-utils libxml2-dev libclang-cpp${LLVM_VERSION}-dev libclang-cpp${LLVM_VERSION} llvm-${LLVM_VERSION}-dev libncurses5
-cd /opt
-sudo wget https://github.com/llvm/llvm-project/releases/download/llvmorg-11.1.0/clang+llvm-11.1.0-aarch64-linux-gnu.tar.xz
-sudo tar -xvvf clang+llvm-11.1.0-aarch64-linux-gnu.tar.xz
-sudo mv clang+llvm-11.1.0-aarch64-linux-gnu llvm-11.1.0
-sudo rm clang+llvm-11.1.0-aarch64-linux-gnu.tar.xz
-```
-
-#### Compile and Install PoCL
+### Compile and Install PoCL
 
 ``` sh
 cd ~/
@@ -136,4 +126,18 @@ cd build
 cmake ..
 make -j6
 ./clpeak
+```
+
+### Install LLVM
+
+Install the LLVM for ARM64 and Jetson Nano on Ubuntu 18.04 ([source](https://largo.lip6.fr/monolithe/admin_pocl/)):
+
+``` bash
+export LLVM_VERSION=10
+sudo apt install -y build-essential ocl-icd-libopencl1 cmake git pkg-config libclang-${LLVM_VERSION}-dev clang-${LLVM_VERSION} llvm-${LLVM_VERSION} make ninja-build ocl-icd-libopencl1 ocl-icd-dev ocl-icd-opencl-dev libhwloc-dev zlib1g zlib1g-dev clinfo dialog apt-utils libxml2-dev libclang-cpp${LLVM_VERSION}-dev libclang-cpp${LLVM_VERSION} llvm-${LLVM_VERSION}-dev libncurses5
+cd /opt
+sudo wget https://github.com/llvm/llvm-project/releases/download/llvmorg-11.1.0/clang+llvm-11.1.0-aarch64-linux-gnu.tar.xz
+sudo tar -xvvf clang+llvm-11.1.0-aarch64-linux-gnu.tar.xz
+sudo mv clang+llvm-11.1.0-aarch64-linux-gnu llvm-11.1.0
+sudo rm clang+llvm-11.1.0-aarch64-linux-gnu.tar.xz
 ```
