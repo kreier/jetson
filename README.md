@@ -40,6 +40,26 @@ It looks like only 6.8 GB/s are usable with LPDDR4, not 25.60. This will limit t
 
 You can install [ollama](https://ollama.com/) on this machine. And it does run llama3.2:1b with __3.77 token/s__ at 100% CPU. Is it possible to get GPU acceleration? The hardware should be able to, since Cuda CC >= 5.0 is required, and the Jetson has CC 5.3.
 
+#### Not possible - 2024-07-25
+
+As per this [issue 4140](https://github.com/ollama/ollama/issues/4140) on Github it should not be possible to run ollama on the Jetson Nano. The challenge is the version of `gcc`.
+
+``` sh
+mk@jetson:~$ nvcc --version
+nvcc: NVIDIA (R) Cuda compiler driver
+Copyright (c) 2005-2021 NVIDIA Corporation
+Built on Sun_Feb_28_22:34:44_PST_2021
+Cuda compilation tools, release 10.2, V10.2.300
+Build cuda_10.2_r440.TC440_70.29663091_0
+```
+
+- Ollma a requires gcc-11. CUDA 10.2 is not supported past gcc-8
+- Nvidia provies for the Jetson Nano only JetPack 4.6, based on Ubuntu 18.04, with build-in CUDA 10.2. It includes gcc-7.5
+
+As tested by dtischler in May 4, 2024 an upgrade to gcc-11 is relatively easy done, but CUDA and the GPU are not usable, and it falls back to CPU inference. 
+
+Technically the Maxwell GPU with Cuda CC 5.3 should be supported by Cuda 12. But it would be privided by Nvidia with their [JetPack SDK](https://developer.nvidia.com/embedded/jetpack). And as the [list of old versions](https://developer.nvidia.com/embedded/jetpack-archive) indicate, the latest supported version for the Jetson Nano is 4.6.6. Since 5.1.1 the Jetson Orin Nano is supported.
+
 ### 2) llama.cc as an alternative?
 
 An [article by Flor Sanders](https://gist.github.com/FlorSanders/2cf043f7161f52aa4b18fb3a1ab6022f) from April 2024 describes the process of running llama.cpp on a 2GB Jetson Nano. With 4GB it should be possible to run a complete llama3.2:1b model file. But you can't use the provided gcc 7.5 compiler, you need at least 8.5 - so you compile it yourself over night.
