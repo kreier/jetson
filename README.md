@@ -36,13 +36,13 @@ It looks like only 6.8 GB/s are usable with LPDDR4, not 25.60. This will limit t
 
 ## Running an LLM on the Jetson
 
-### 1) Ollama
+### 1) Ollama with CPU
 
 You can install [ollama](https://ollama.com/) on this machine. And it does run llama3.2:1b with __3.77 token/s__ at 100% CPU. Is it possible to get GPU acceleration? The hardware should be able to, since Cuda CC >= 5.0 is required, and the Jetson has CC 5.3.
 
-#### Not possible - 2024-07-25
+#### Use of GPU not possible - 2024-07-25
 
-As per this [issue 4140](https://github.com/ollama/ollama/issues/4140) on Github it should not be possible to run ollama on the Jetson Nano. The challenge is the version of `gcc`.
+As per this [ollama issue 4140](https://github.com/ollama/ollama/issues/4140) on Github it should not be possible to run ollama on the Jetson Nano. The challenge is the version of `gcc`.
 
 ``` sh
 mk@jetson:~$ nvcc --version
@@ -60,9 +60,11 @@ As tested by dtischler in May 4, 2024 an upgrade to gcc-11 is relatively easy do
 
 Technically the Maxwell GPU with Cuda CC 5.3 should be supported by Cuda 12. But it would be privided by Nvidia with their [JetPack SDK](https://developer.nvidia.com/embedded/jetpack). And as the [list of old versions](https://developer.nvidia.com/embedded/jetpack-archive) indicate, the latest supported version for the Jetson Nano is 4.6.6. Since 5.1.1 the Jetson Orin Nano is supported.
 
-### 2) llama.cc as an alternative?
+### 2) llama.cpp as an alternative? probably only on CPU 2024-04-11
 
-An [article by Flor Sanders](https://gist.github.com/FlorSanders/2cf043f7161f52aa4b18fb3a1ab6022f) from April 2024 describes the process of running llama.cpp on a 2GB Jetson Nano. With 4GB it should be possible to run a complete llama3.2:1b model file. But you can't use the provided gcc 7.5 compiler, you need at least 8.5 - so you compile it yourself over night.
+The following procedure seems to be obsolete, now that specific entries for the Jetson Nano are included in the Makefile for llama.cpp and even ollama runs out-of-the-box. The gist does not mention the use of the GPU with CUDA for acceleration.
+
+An gist [article by Flor Sanders](https://gist.github.com/FlorSanders/2cf043f7161f52aa4b18fb3a1ab6022f) from April 2024 describes the process of running llama.cpp on a 2GB Jetson Nano. With 4GB it should be possible to run a complete llama3.2:1b model file. But you can't use the provided gcc 7.5 compiler, you need at least 8.5 - so you compile it yourself over night. It needs around 3 hours to complete.
 
 Since I have a 32GB SDcard and 11 GB free it should be possible to compile GCC 8.5 overnight. But first we have to [add the link to nvcc](https://forums.developer.nvidia.com/t/cuda-nvcc-not-found/118068) the path. in `~/.bashrc` I have to add (with `nano`, that has to be installed too): 
 
@@ -72,7 +74,7 @@ $ export LD_LIBRARY_PATH=/usr/local/cuda/lib64\
                          ${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
 ```
 
-
+The recommended version of llama.cpp to check out is [a33e6a0](https://github.com/ggerganov/llama.cpp/commit/a33e6a0d2a66104ea9a906bdbf8a94d050189d91) from February 26, 2024. The current version of the Makefile has entries for the Jetson [in line 476](https://github.com/ggerganov/llama.cpp/blob/2e2f8f093cd4fb6bbb87ba84f6b9684fa082f3fa/Makefile#L476). It could well be that this only refers to run on the CPU (as with the mentioned Raspberry Pi's) and not using the GPU with CUDA. This aligns with the [error message by VViliams123](https://gist.github.com/FlorSanders/2cf043f7161f52aa4b18fb3a1ab6022f?permalink_comment_id=5219170#gistcomment-5219170) on October 4, 2024.
 
 ### 3) POCL - Portable CL on the Jetson?
 
