@@ -22,11 +22,25 @@ The hardware was released 2019, based on the [Maxwell architecture](https://en.w
 - 128 core Maxwell (CC 5.3) GPU with 472 GFLOPS at 921 MHz
 - [Cuda CC 5.3](https://www.techpowerup.com/gpu-specs/jetson-nano.c3643)
 
+### Memory bandwidth
+
+I checked the actual memory bandwidth with `sysbench`:
+
+``` sh
+mk@jetson:~$ sysbench memory --memory-block-size=1m run
+sysbench 1.0.11 (using system LuaJIT 2.1.0-beta3)
+68903.00 MiB transferred (6887.13 MiB/sec)
+```
+
+It looks like only 6.8 GB/s are usable with LPDDR4, not 25.60. This will limit the speed in token generation (TG) later.
+
 ## Running an LLM on the Jetson
 
-You can install [ollama](https://ollama.com/) on this machine. And it does run llama3.2:1b with 3.77 token/s at 100% CPU. Is it possible to get GPU acceleration? The hardware should be able to, since Cuda CC >= 5.0 is required, and the Jetson has CC 5.3.
+### 1) Ollama
 
-### llama.cc as an alternative?
+You can install [ollama](https://ollama.com/) on this machine. And it does run llama3.2:1b with __3.77 token/s__ at 100% CPU. Is it possible to get GPU acceleration? The hardware should be able to, since Cuda CC >= 5.0 is required, and the Jetson has CC 5.3.
+
+### 2) llama.cc as an alternative?
 
 An [article by Flor Sanders](https://gist.github.com/FlorSanders/2cf043f7161f52aa4b18fb3a1ab6022f) from April 2024 describes the process of running llama.cpp on a 2GB Jetson Nano. With 4GB it should be possible to run a complete llama3.2:1b model file. But you can't use the provided gcc 7.5 compiler, you need at least 8.5 - so you compile it yourself over night.
 
@@ -40,7 +54,7 @@ $ export LD_LIBRARY_PATH=/usr/local/cuda/lib64\
 
 
 
-### POCL - Portable CL on the Jetson?
+### 3) POCL - Portable CL on the Jetson?
 
 An [article on Medium](https://yunusmuhammad007.medium.com/build-and-install-opencl-on-jetson-nano-10bf4a7f0e65) from September 2021 describes the installation of [PoCL](https://github.com/pocl/pocl) 1.7 on the Jetson Nano. By 2024 version 6.0 is the latest one, but it's not supported by PoCL. The reason [is described here](https://largo.lip6.fr/monolithe/admin_pocl/), and related to the old Ubuntu 18.04. That's why the latest version that can be installed is PoCL 3.0. This has been done successfully in October 2022
 
@@ -50,7 +64,7 @@ On "old" Jetson boards (TX2, Xavier NX, AGX Xavier & Nano), it is not possible t
 
 Install the LLVM for ARM64 and Jetson Nano on Ubuntu 18.04 ([source](https://largo.lip6.fr/monolithe/admin_pocl/)):
 
-```
+``` bash
 export LLVM_VERSION=10
 sudo apt install -y build-essential ocl-icd-libopencl1 cmake git pkg-config libclang-${LLVM_VERSION}-dev clang-${LLVM_VERSION} llvm-${LLVM_VERSION} make ninja-build ocl-icd-libopencl1 ocl-icd-dev ocl-icd-opencl-dev libhwloc-dev zlib1g zlib1g-dev clinfo dialog apt-utils libxml2-dev libclang-cpp${LLVM_VERSION}-dev libclang-cpp${LLVM_VERSION} llvm-${LLVM_VERSION}-dev libncurses5
 cd /opt
@@ -62,7 +76,7 @@ sudo rm clang+llvm-11.1.0-aarch64-linux-gnu.tar.xz
 
 #### Compile and Install PoCL
 
-```
+``` sh
 cd ~/
 mkdir softwares
 cd softwares
@@ -80,8 +94,8 @@ echo "/opt/pocl-3.0/lib/libpocl.so" | sudo tee --append /etc/OpenCL/vendors/pocl
 
 Now OpenCL should be successfully installed on the system. You can check if it works with the following command:
 
-```
-clinfo
+``` sh
+mk@jetson:~$ clinfo
 ```
 
 My result:
