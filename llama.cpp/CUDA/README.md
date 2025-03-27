@@ -346,7 +346,7 @@ eval rate:            4.88 tokens/s
 
 `jtop` again shows no activity for the GPU, even 0mW power consumption, while the CPU is at 3.5W (compared to 2.2W for your case). 
 
-![image](https://gist.github.com/user-attachments/assets/cc5b3069-6219-4451-9569-2f8d6d3af7bd)
+![image](mk1.png)
 
 And ollama somehow still indicates to be using the GPU:
 
@@ -363,6 +363,8 @@ deepseek-r1:1.5b                                       a42b25d8c10a    1.1 GB   
 And since the model is 41% smaller than `deepseek-r1:1.5b` with 668 MB instead of 1.04 GiB (and only 22 layers instead of 28) it is also 40% faster in the token generation (average 5.15 compared to 3.66). Which would in turn align with the memory bandwith being the bottleneck.
 
 It seems the use of the GPU for inference on the Jetson Nano **currently** does not make sense. The current way of doing inference (even with MLA Multi-head Latent Attention, Mixture of Experts and Multi-Token Prediction) presents the memory bandwidth as bottleneck. And CPUs get more useful instructions too, like NEON and FMA. The newer software makes the LLM almost 3x faster with the CPU than the older code with the GPU (5.15 token/s vs. 1.75). Therefore it currently seems like an academic excercise to use the GPU. That might be different for training a model.
+
+> Link to ollama logfile [ollama.txt](ollama.txt)
 
 I'll check the speed with `llama.cpp` later and post the update here.
 
@@ -422,3 +424,14 @@ build: f125b8dc (4977)
 Which indicates: 10x memory bandwidth - 10x token generation. 96x memory bandwidth - 65x token generation. The CUDA core comparison  is 128 to 6144, but with GPU the Jetson is currently its even slower 😲.
 
 You see where the raw compute power is really needed, in the initial **prompt processing**. Here we see a jump from 6.71 on Jetson to 12830 on RTX 3070, a factor of **1912x**. Comparing @anuragdogra2192 GPU version to my CPU version it is only 2x slower in pp (3.08 vs. 6.71) than in tg (1.75 vs. 4.98), so the GPU might have an impact here. 
+
+### 2025-03-28
+
+I found a mistake in my use of `cmake`. I had compiled gcc 8.5 but cmake was using 7.5, which caused serveral errors. A new run with
+
+``` sh
+
+
+```
+
+Finally compiled `llama.cpp` with gcc 8.5. Now it's time to compile with CUDA support:
