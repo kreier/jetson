@@ -2,9 +2,20 @@
 
 With the Maxwell cores of the Jetson and supporting CUDA Compute Capability one would assume that llama.cpp and ollama would run accelerated. But that's not the case
 
+![image 1](https://kreier.github.io/jetson-car/pic/2024_jetson_nano.jpg)
+
 ## Limitations in Hardware and Software
 
-
+|          | Jetson Nano | ollama CUDA | Jetson Orin Nano | Jetson Orin Nano | llama.cpp CUDA |
+|----------|:-----------:|:-----------:|:----------------:|:----------------:|:--------------:|
+| JetPack  |    4.6.6    |             |       5.1.4      |        6.2       |                |
+| nvcc     |     10.2    |             |      11.4.19     |       12.6       |                |
+| gcc      |     <= 8    |    >= 11    |        9.3       |       11.3       |                |
+| L4T      |   r32.7.6   |             |      r35.6.0     |      r36.4.3     |                |
+| kernel   |   4.9.337   |             |     5.10 LTS     |     5.15 LTS     |                |
+| Ubuntu   |    18.04    |             |       20.04      |       22.04      |                |
+| TensorRT |             |             |                  |       10.3       |                |
+| cuDNN    |             |             |       8.6.0      |        9.3       |                |
 
 ## Thread on Gist
 
@@ -65,7 +76,7 @@ Running LLAMA.cpp on Jetson Nano 4 GB with CUDA 10.2
 
 > In this post, I’ll walk you through how to run llama.cpp on a Jetson Nano using CUDA 10.2. We’ll go through everything from setting up the environment to model inference, and I’ll share tips for achieving the best results on a resource-constrained device like the Jetson Nano.
 
-![ad1](ad1.jpg)
+<img src="https://vex-ssis.github.io/2025/docs/1x1.png" width="25%"><img src="ad1.jpg" width="50%">
 
 #### Step 1: Setting Up the Jetson Nano
 
@@ -427,11 +438,59 @@ You see where the raw compute power is really needed, in the initial **prompt pr
 
 ### 2025-03-28
 
-I found a mistake in my use of `cmake`. I had compiled gcc 8.5 but cmake was using 7.5, which caused serveral errors. A new run with
+I found a mistake in my use of `cmake`. I had compiled gcc 8.5 but cmake was using 7.5, which caused serveral errors. These are the new parameters to compile llama.cpp with the gcc 8.5 compiler. It finishes with a few warnings:
 
 ``` sh
-
-
+sudo cmake -B build -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ -DLLAMA_CURL=ON
+sudo cmake --build build --config Release
 ```
 
-Finally compiled `llama.cpp` with gcc 8.5. Now it's time to compile with CUDA support:
+As usual I download the [TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF](https://huggingface.co/TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF)
+
+``` sh 
+mk@nano:~/llama.cpp$ ./build/bin/llama-cli -hf TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF:Q4_K_M
+```
+
+The benchmark is unaffected:
+
+```
+./build/bin/llama-bench -m
+../../.cache/llama.cpp/TheBloke_TinyLlama-1.1B-Chat-v1.0-GGUF_tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf
+| model                  |       size | params | backend | threads |   est |         t/s |
+| ---------------------- | ---------: | -----: | ------- | ------: | ----: | ----------: |
+| llama 1B Q4_K - Medium | 636.18 MiB | 1.10 B | CPU     |       4 | pp512 | 6.60 ± 0.00 |
+| llama 1B Q4_K - Medium | 636.18 MiB | 1.10 B | CPU     |       4 | tg128 | 5.16 ± 0.03 |
+
+build: f125b8dc (4977)
+```
+
+Finally compiled `llama.cpp` with gcc 8.5. Now it's time to compile with CUDA support. The GIST mentioned above uses make, we want to use `cmake`:
+
+``` sh
+export CUDACXX=/usr/local/cuda-10.2/bin/nvcc
+cmake -B build -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ -DLLAMA_CURL=ON -DGGML_CUDA=ON -DCUDACXX=/usr/local/cuda-10.2/bin/nvcc
+cmake --build build --config Release
+```
+
+Current error:
+
+```
+CMake Error at ggml/src/ggml-cuda/CMakeLists.txt:25 (enable_language):
+  No CMAKE_CUDA_COMPILER could be found.
+
+  Tell CMake where to find the compiler by setting either the environment
+  variable "CUDACXX" or the CMake cache entry CMAKE_CUDA_COMPILER to the full
+  path to the compiler, or to the compiler name if it is in the PATH.
+```
+
+And `-DLLAMA_CUBLAS=ON` is about to be deprecated: 
+
+```
+CMake Error at CMakeLists.txt:107 (message):
+  LLAMA_CUBLAS is deprecated and will be removed in the future.
+
+  Use GGML_CUDA instead
+
+Call Stack (most recent call first):
+  CMakeLists.txt:112 (llama_option_depr)
+```
