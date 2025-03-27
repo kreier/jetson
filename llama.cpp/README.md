@@ -10,7 +10,7 @@ Read more in this gist: [kreier/JetsonNano2GB_LlamaCpp_SetupGuide.md](https://gi
 
 ## Compile llama.cpp from source
 
-My Jetson Nano Developer Kit A02 from 2019 has 4GB RAM. The latest software support from Nvidia is Ubuntu 18.04 LTS, support ended in May 2023. It includes the GNU Compiler Collection gcc and g++ 7.5.0 from 2019. You can [compile version 8.5 in about 3 hours](https://kreier.github.io/jetson/#2-llamacpp-as-an-alternative-probably-only-on-cpu-2024-04-11) from source, but you get several error messages when trying to compile llama.cpp. The first step `cmake -B build` works, but the second step `cmake --build build --config Release` exits after 6% with 
+My Jetson Nano Developer Kit A02 from 2019 has 4GB RAM. The [latest software](https://developer.nvidia.com/embedded/downloads) support from Nvidia is Ubuntu 18.04 LTS, support ended in May 2023. On the Nvidia website its the [Jetson Nano Developer Kit SD Card Image](https://developer.nvidia.com/embedded/l4t/r32_release_v7.1/jp_4.6.1_b110_sd_card/jeston_nano/jetson-nano-jp461-sd-card-image.zip) 4.6.1 from 2022/02/23.  It includes the GNU Compiler Collection gcc and g++ 7.5.0 from 2019. You can [compile version 8.5 in about 3 hours](https://kreier.github.io/jetson/#2-llamacpp-as-an-alternative-probably-only-on-cpu-2024-04-11) from source, but you get several error messages when trying to compile llama.cpp. The first step `cmake -B build` works, but the second step `cmake --build build --config Release` exits after 6% with 
 
 ```
 ...
@@ -42,3 +42,63 @@ cmake --build build --config Release
 
 Note that we included the gcc version for the build cmake. There are a few warnings, but it continues to build until 100%. Now you can test your build:
 
+## Running llama.cpp
+
+Let's have a look at a few small LLMs we coud run:
+
+- https://huggingface.co/TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF/blob/main/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf
+- https://huggingface.co/bartowski/DeepSeek-R1-Distill-Qwen-1.5B-GGUF
+
+We forgot to build it with support for huggingface, so we get an error
+
+```
+mk@jetson:~/Downloads/llama.cpp$ ./build/bin/llama-cli -hf TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF
+common_get_hf_file: llama.cpp built without libcurl, downloading from Hugging Face not supported.
+```
+
+### Download models
+
+We can download it with `wget https://huggingface.co/TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF/resolve/main/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf` and then run it with `./build/bin/llama-cli -m models/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf -p "Solar System" --n-gpu-layers 5 --ctx-size 512 --threads 4 --temp 0.7 --top-k 40 --top-p 0.9 --batch-size 16`.
+
+### Compile llama.cpp with huggingface support
+
+A common problem, as [noted in October 2024 on github](https://github.com/ggml-org/llama.cpp/discussions/9835). We have to 
+
+```
+$ sudo apt install libcurl4-openssl-dev
+```
+
+And then we can compile llama.cpp with the additional flag `-DLLAMA_CURL=ON`
+
+```
+cmake -B build -DCMAKE_C_COMPILER=/usr/bin/gcc-9 -DCMAKE_CXX_COMPILER=/usr/bin/g++-9 -DLLAMA_CURL=ON
+cmake --build build --config Release
+```
+
+It jumps right away to 20% and needs only 5 minutes to compile. Now we can directly write  
+
+```
+llama-cli -hf bartowski/DeepSeek-R1-Distill-Qwen-1.5B-GGUF:Q4_K_L
+```
+
+There is also an uncensored one:
+
+```
+llama-cli -hf mradermacher/DeepSeek-R1-Distill-Qwen-1.5B-uncensored-GGUF:Q4_K_M
+```
+
+### Benchmark
+
+The way to run the benchmark is `./build/bin/llama-bench -m ./models/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf`
+
+```
+| model                          |       size |     params | backend    | threads |          test |                  t/s |
+| ------------------------------ | ---------: | ---------: | ---------- | ------: | ------------: | -------------------: |
+| llama 1B Q4_K - Medium         | 636.18 MiB |     1.10 B | CPU        |       4 |         pp512 |          6.71 ± 0.00 |
+| llama 1B Q4_K - Medium         | 636.18 MiB |     1.10 B | CPU        |       4 |         tg128 |          4.98 ± 0.01 |
+
+build: c7b43ab6 (4970)
+```
+## History
+
+In November 2023 a [bug report #4099 for llama.cpp](https://github.com/ggml-org/llama.cpp/issues/4099) was created for the Jetson Nano. It was closed in March 2024, followed by the [github gist from FlorSanders](https://gist.github.com/FlorSanders/2cf043f7161f52aa4b18fb3a1ab6022f) explaining the successful steps.
