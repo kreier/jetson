@@ -4,6 +4,8 @@ With the Maxwell cores of the Jetson and supporting CUDA Compute Capability one 
 
 ## Limitations in Hardware and Software
 
+
+
 ## Thread on Gist
 
 The original context can be found at https://gist.github.com/FlorSanders/2cf043f7161f52aa4b18fb3a1ab6022f
@@ -56,6 +58,255 @@ I have tried the model "tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf" from Hugging Face 
 It worked like a charm. I have added my performance optimized parameters in the blog below, check it out:
 
 https://medium.com/@anuragdogra2192/llama-cpp-on-nvidia-jetson-nano-a-complete-guide-fb178530bc35
+
+### LLAMA.CPP on NVIDIA Jetson Nano: A Complete Guide
+
+Running LLAMA.cpp on Jetson Nano 4 GB with CUDA 10.2
+
+> In this post, I’ll walk you through how to run llama.cpp on a Jetson Nano using CUDA 10.2. We’ll go through everything from setting up the environment to model inference, and I’ll share tips for achieving the best results on a resource-constrained device like the Jetson Nano.
+
+![ad1](ad1.jpg)
+
+#### Step 1: Setting Up the Jetson Nano
+
+> Start by setting up your Jetson Nano 4 GB. Below is the link:
+
+https://developer.nvidia.com/embedded/learn/get-started-jetson-nano-devkit
+
+#### Step 2: Install CUDA and cuBLAS
+
+> For JetPack 4.x (Ubuntu 18.04)
+
+Jetson Nano supports CUDA 10.2. Let’s install:
+
+``` 
+sudo apt update
+sudo apt install -y cuda-toolkit-10-2
+```
+
+Set up the environment variables:
+
+```
+echo 'export PATH=/usr/local/cuda-10.2/bin:$PATH' >> ~/.bashrc
+echo 'export LD_LIBRARY_PATH=/usr/local/cuda-10.2/lib64:$LD_LIBRARY_PATH' >> ~/.bashrc
+source ~/.bashrc
+```
+
+Verify CUDA installation:
+
+``` 
+nvcc --version
+```
+
+Check if CUDA libraries are available:
+
+```
+ls /usr/local/cuda/lib64
+```
+
+#### Step 3: Install GCC 8.5 manually on Ubuntu 18.04
+
+> As it is required by llama.cpp
+
+Install dependencies:
+
+```
+sudo apt-get update
+sudo apt-get install -y build-essential software-properties-common
+sudo apt-get install -y libgmp-dev libmpfr-dev libmpc-dev
+```
+
+Download GCC 8.5 source code:
+
+```
+wget http://ftp.gnu.org/gnu/gcc/gcc-8.5.0/gcc-8.5.0.tar.gz
+tar -xvzf gcc-8.5.0.tar.gz
+cd gcc-8.5.0
+./contrib/download_prerequisites
+```
+
+Build and install GCC 8.5 (this takes time):
+
+```
+mkdir build && cd build
+../configure --enable-languages=c,c++ --disable-multilib
+make -j$(nproc)  # Use all CPU cores
+sudo make install
+```
+
+Set GCC 8.5 as Default:
+
+```
+sudo update-alternatives --install /usr/bin/gcc gcc /usr/local/bin/gcc-8.5 100
+sudo update-alternatives --install /usr/bin/g++ g++ /usr/local/bin/g++-8.5 100
+sudo update-alternatives --config gcc
+sudo update-alternatives --config g++
+```
+
+Let's confirm the installation, it should output “gcc (GCC) 8.5.0”:
+
+```
+gcc --version
+g++ --version
+```
+
+#### Step 4: Get the compatible llama.cpp version for our Jetson Nano
+
+> https://github.com/ggml-org/llama.cpp/tree/81bc9214a389362010f7a57f4cbc30e5f83a2d28
+
+```
+git clone https://github.com/ggerganov/llama.cpp.git  
+cd llama.cpp
+git checkout 81bc921
+git checkout -b llamaForJetsonNano
+```
+
+Why this one 🤔? Latest versions of llama.cpp require CUDA version 11+, and our Jetson Nano architecture cannot support that efficiently.
+
+#### Step 5: Build the llama.cpp
+
+We need CMake 3.31.6 now, which can only be installed manually:
+
+```
+sudo apt update
+sudo apt install -y build-essential libssl-dev
+cd ~
+wget https://github.com/Kitware/CMake/releases/download/v3.31.6/cmake-3.31.6.tar.gz
+tar -xvf cmake-3.31.6.tar.gz
+cd cmake-3.31.6
+./bootstrap && make -j$(nproc) && sudo make install
+cmake --version
+```
+
+Move CMake to `/opt/`
+
+```
+sudo mv cmake-3.31.6 /opt/cmake-3.31.6
+```
+
+Add CMake to your PATH environment variable:
+
+```
+echo 'export PATH=/opt/cmake-3.31.6/bin:$PATH' >> ~/.bashrc
+source ~/.bashrc
+```
+
+Check if the system is using the new CMake 3.31.6:
+
+```
+cmake --version
+```
+
+The time has come to build llama.cpp:
+
+``` sh
+cd llama.cpp
+mkdir build && cd build
+cmake .. -DLLAMA_CUBLAS=ON
+make -j 2
+```
+
+You might get some errors like below:
+
+``` py
+The error "identifier 'CUBLAS_TF32_TENSOR_OP_MATH' not found"
+
+# Don't worry
+# CUBLAS_TF32_TENSOR_OP_MATH was introduced in CUDA 11.0.
+# If you are using CUDA 10.2 or lower, this identifier does not exist in your CUDA libraries.
+```
+
+> Fix to above errors:
+
+Open the file in llama.cpp directory, name: ggml-cuda.cu and add the following piece of code above
+
+> #include <cuda_runtime.h>
+
+``` h
+#if CUDA_VERSION < 1100
+  #define CUBLAS_TF32_TENSOR_OP_MATH CUBLAS_TENSOR_OP_MATH
+  #define CUBLAS_COMPUTE_16F CUDA_R_16F
+  #define CUBLAS_COMPUTE_32F CUDA_R_32F
+#endif
+```
+
+Let's try again:
+
+```
+make -j 2
+```
+
+> Congratulations on building llama.cpp successfully on your Jetson Nano.
+> Coffee Time ☕️ .
+
+#### Step 6: The next milestone is to run our LLama models
+
+Let's get some models from https://huggingface.co/ :
+
+llama-2–7b.Q4_K_M — 7 billion parameters, 4 Bits Quantized. This model is huge for Jetson Nano, and its performance is quite bad even after performance tuning. Really slow.
+
+llama-3b-v2.Q4_K_M — 3 billion parameters, 4 Bits Quantized. Also slow.
+
+Finally, I found a very good model which runs quite smoothly. And you can have a lot of fun.
+
+tinyllama-1.1b-chat-v1.0.Q4_K_M https://huggingface.co/TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF/blob/main/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf
+
+Let's try it out:
+
+Running an inference on the tinyllama-1.1b-chat-v1.0.Q4_K_M model with prompt “Solar System” and with performance tuning parameters & response quality optimization.
+
+```
+./build/bin/main -m models/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf -p "Solar System" --n-gpu-layers 5 --ctx-size 512 --threads 4 --temp 0.7 --top-k 40 --top-p 0.9 --batch-size 16
+```
+
+![ad2](ad2.jpg)
+
+Summary of performance tuning parameters and response quality optimization. You can tweak them and try them out.
+
+``` 
+|  Parameter      |  What It Controls       |  Recommended                 |
+|  -------------  |  ---------------------  |  --------------------------- |
+|  --n-gpu-layers | Model layers on GPU     | 3-5 (Lower if out of VRAM)   |
+|  --ctx-size     | Memory for conversation | 512 (256 for speed)          |
+|  --threads      | CPU usage               | 4 (2 for lower CPU usage)    |
+|  --temp         | Creativity              | 0.7 (Lower for accuracy)     |
+|  --top-k        | Word selection limit    | 40                           |
+|  --top-p        | Probability threshold   | 0.9                          |
+|  --batch-size   | Processing speed        | 16 (Lower if RAM is an issue)|
+```
+
+One more performance tweak has been done is enabling swap memory helps prevent out-of-memory (OOM) crashes when running large models like Llama.
+
+``` sh
+sudo fallocate -l 8G /swapfile
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile 
+```
+
+![ad3](ad3.jpg)
+
+Now let us ask about visiting Dresden city in Germany. Check out the response below:
+
+![ad4](ad4.jpg)
+
+It seems the model is performing quite good and the answers are also quite accurate. Not bad for such a tiny model.
+
+While exiting the conversation, the llama.cpp generates the performance metrics for the chosen model, as seen below:
+
+![ad5](ad5.jpg)
+
+#### Conclusion
+
+Running llama.cpp on a Jetson Nano with CUDA 10.2 is a fun and educational experience. With the right configuration and optimizations, you can efficiently run small models on the Jetson Nano.
+
+This setup opens up the possibilities for running transformer-based models on low-power embedded devices, paving the way for more AI-powered applications.
+
+Feel free to explore other models, adjust parameters, and tweak the setup to fit your needs. With CUDA acceleration, the Jetson Nano can become a powerful tool for AI research and experimentation.
+
+> “Thank you for reading! I hope this post helps you run LLAMA.cpp on your Jetson Nano. If you have any questions or suggestions, feel free to leave a comment. Happy coding!”
+
+
 
 ### 2025-03-27
 
