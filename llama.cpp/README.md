@@ -87,18 +87,39 @@ There is also an uncensored one:
 llama-cli -hf mradermacher/DeepSeek-R1-Distill-Qwen-1.5B-uncensored-GGUF:Q4_K_M
 ```
 
-### Benchmark
+## Benchmark
 
-The way to run the benchmark is `./build/bin/llama-bench -m ./models/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf`
+The reference model is the small [TinyLlama-1.1B-Chat](https://huggingface.co/TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF/blob/main/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf). You install it with `llama-cli -hf TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF:Q4_K_M`.
+
+The way to run the benchmark is `./build/bin/llama-bench -m ../.cache/llama.cpp/TheBloke_TinyLlama-1.1B-Chat-v1.0-GGUF_tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf`
+
+### Jetson Nano - memory bandwidth 6 GB/s
 
 ```
-| model                          |       size |     params | backend    | threads |          test |                  t/s |
-| ------------------------------ | ---------: | ---------: | ---------- | ------: | ------------: | -------------------: |
-| llama 1B Q4_K - Medium         | 636.18 MiB |     1.10 B | CPU        |       4 |         pp512 |          6.71 ± 0.00 |
-| llama 1B Q4_K - Medium         | 636.18 MiB |     1.10 B | CPU        |       4 |         tg128 |          4.98 ± 0.01 |
+| model                  |       size | params | backend | threads |  test |         t/s |
+| ---------------------- | ---------: | -----: | ------- | ------: | ----: | ----------: |
+| llama 1B Q4_K - Medium | 636.18 MiB | 1.10 B | CPU     |       4 | pp512 | 6.71 ± 0.00 |
+| llama 1B Q4_K - Medium | 636.18 MiB | 1.10 B | CPU     |       4 | tg128 | 4.98 ± 0.01 |
 
 build: c7b43ab6 (4970)
 ```
+
+### Intel i7-13700T - memory bandwidth 54 GB/s
+
+For comparison I ran the same model and benchmark on an i7-13700T:
+
+```
+| model                  |       size | params | backend | threads |  test |           t/s |
+| ---------------------- | ---------: | -----: | ------- | ------: | ----: | ------------: |
+| llama 1B Q4_K - Medium | 636.18 MiB | 1.10 B | CPU     |      12 | pp512 | 156.84 ± 8.99 |
+| llama 1B Q4_K - Medium | 636.18 MiB | 1.10 B | CPU     |      12 | tg128 |  47.38 ± 0.88 |
+
+build: d5c6309d (4975)
+```
+
+### Nvidia RTX 3070 Ti - memory bandwidth 604 GB/s
+
+
 ## History
 
 In November 2023 a [bug report #4099 for llama.cpp](https://github.com/ggml-org/llama.cpp/issues/4099) was created for the Jetson Nano. It was closed in March 2024, followed by the [github gist from FlorSanders](https://gist.github.com/FlorSanders/2cf043f7161f52aa4b18fb3a1ab6022f) explaining the successful steps.
