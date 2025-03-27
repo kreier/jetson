@@ -117,8 +117,20 @@ For comparison I ran the same model and benchmark on an i7-13700T:
 build: d5c6309d (4975)
 ```
 
-### Nvidia RTX 3070 Ti - memory bandwidth 604 GB/s
+### Nvidia RTX 3070 Ti - memory bandwidth [574 GB/s](https://kreier.github.io/benchmark/gpu/)
 
+```
+ggml_cuda_init: GGML_CUDA_FORCE_MMQ:    no
+ggml_cuda_init: GGML_CUDA_FORCE_CUBLAS: no
+ggml_cuda_init: found 1 CUDA devices:
+  Device 0: NVIDIA GeForce RTX 3070 Ti, compute capability 8.6, VMM: yes
+| model                  |       size | params | backend | ngl |   test |               t/s |
+| ---------------------- | ---------: | -----: | ------- | --: | -----: | ----------------: |
+| llama 1B Q4_K - Medium | 636.18 MiB | 1.10 B | CUDA    |  99 |  pp512 | 12830.34 ± 186.18 |
+| llama 1B Q4_K - Medium | 636.18 MiB | 1.10 B | CUDA    |  99 |  tg128 |    325.35 ± 11.50 |
+
+build: f125b8dc (4977)
+```
 
 ## History
 
