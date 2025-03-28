@@ -1,7 +1,10 @@
 # Benchmarking llama.cpp with and without GPU/CUDA support
 
-- gcc 8.5.0
-- nvcc 10.2.300
+- CC:     gcc (GCC) 8.5.0
+- CSS:    g++ (GCC) 8.5.0
+- NVCC:   Build cuda_10.2_r440.TC440_70.29663091_0
+
+See this Gist: [FlorSanders/JetsonNano2GB_LlamaCpp_SetupGuide.md](https://gist.github.com/FlorSanders/2cf043f7161f52aa4b18fb3a1ab6022f)
 
 #### Versions
 
@@ -33,7 +36,7 @@ build: c7b43ab6 (4970)
 
 
 
-## GPU with 81bc921 from December 7, 2023 to llama.cpp3
+## GPU with 81bc921 from December 7, 2023 to llama.cpp3 - on [gist](https://gist.github.com/FlorSanders/2cf043f7161f52aa4b18fb3a1ab6022f?permalink_comment_id=5517046#gistcomment-5517046)
 
 ```
 git clone https://github.com/ggml-org/llama.cpp.git llama.cpp3
@@ -243,7 +246,7 @@ index 068f6ed0..a4ed3c95 100644
          ifneq ($(filter TX2%,$(JETSON_RELEASE_INFO)),)
 ```
 
-**Manually:** 
+**Manually:** (much easier with nano and CTRL+_)
 
 - Change `MK_NVCCFLAGS += -O3` to `MK_NVCCFLAGS += -maxrregcount=80` on line 109 and line 113.
 - Remove `MK_CXXFLAGS += -mcpu=native` on line 302.
@@ -252,4 +255,99 @@ index 068f6ed0..a4ed3c95 100644
 
 ```
 make LLAMA_CUBLAS=1 CUDA_DOCKER_ARCH=sm_62 -j 6
+```
+
+```sh
+mk@jetson:~/llama.cpp5$ make LLAMA_CUBLAS=1 CUDA_DOCKER_ARCH=sm_62 -j 6
+I ccache not found. Consider installing it for faster compilation.
+I llama.cpp build info:
+I UNAME_S:   Linux
+I UNAME_P:   aarch64
+I UNAME_M:   aarch64
+I CFLAGS:    -I. -Icommon -D_XOPEN_SOURCE=600 -D_GNU_SOURCE -DNDEBUG -DGGML_USE_CUBLAS -I/usr/local/cuda/include -I/opt/cuda/include -I/targets/x86_64-linux/include -I/usr/local/cuda/targets/aarch64-linux/include  -std=c11   -fPIC -O3 -Wall -Wextra -Wpedantic -Wcast-qual -Wno-unused-function -Wshadow -Wstrict-prototypes -Wpointer-arith -Wmissing-prototypes -Werror=implicit-int -Werror=implicit-function-declaration -pthread -mcpu=native -Wdouble-promotion
+I CXXFLAGS:  -std=c++11 -fPIC -O3 -Wall -Wextra -Wpedantic -Wcast-qual -Wno-unused-function -Wmissing-declarations -Wmissing-noreturn -pthread   -Wno-array-bounds -Wno-format-truncation -Wextra-semi -I. -Icommon -D_XOPEN_SOURCE=600 -D_GNU_SOURCE -DNDEBUG -DGGML_USE_CUBLAS -I/usr/local/cuda/include -I/opt/cuda/include -I/targets/x86_64-linux/include -I/usr/local/cuda/targets/aarch64-linux/include
+I NVCCFLAGS: -std=c++11 -maxrregcount=80 -use_fast_math --forward-unknown-to-host-compiler -Wno-deprecated-gpu-targets -arch=sm_62 -DGGML_CUDA_DMMV_X=32 -DGGML_CUDA_MMV_Y=1 -DK_QUANTS_PER_ITERATION=2 -DGGML_CUDA_PEER_MAX_BATCH_SIZE=128
+I LDFLAGS:   -lcuda -lcublas -lculibos -lcudart -lcublasLt -lpthread -ldl -lrt -L/usr/local/cuda/lib64 -L/opt/cuda/lib64 -L/targets/x86_64-linux/lib -L/usr/local/cuda/targets/aarch64-linux/lib -L/usr/lib/wsl/lib
+I CC:        gcc (GCC) 8.5.0
+I CXX:       g++ (GCC) 8.5.0
+I NVCC:      Build cuda_10.2_r440.TC440_70.29663091_0
+
+/usr/local/bin/gcc  -I. -Icommon -D_XOPEN_SOURCE=600 -D_GNU_SOURCE -DNDEBUG -DGGML_USE_CUBLAS -I/usr/local/cuda/include
+```
+
+### Result - on [gist](https://gist.github.com/FlorSanders/2cf043f7161f52aa4b18fb3a1ab6022f?permalink_comment_id=5517121#gistcomment-5517121)
+
+Update on this initial Gist [a33e6a0](https://github.com/ggml-org/llama.cpp/commit/a33e6a0d2a66104ea9a906bdbf8a94d050189d91) from February 26, 2024, I finally got it compiled! Somehow `cc` was still linked to cc (Ubuntu/Linaro 7.5.0-3ubuntu1~18.04) 7.5.0 for aarch64-linux-gnu. Updated /usr/bin/cc to gcc 8.5.0 and the single `make LLAMA_CUBLAS=1 CUDA_DOCKER_ARCH=sm_62 -j 6` runs through rather fast compared to the other CMake variants. `main` and `llama-bench` are not in a /build subfolder, but can be called. `main` works purely on the CPU with 4.24 prompt evaluation and 2.24 t/s evaluation or token generation to the `-p "Solar system"` prompt. 
+
+But as soon as `--n-gpu-layers 1` is involved it crashes. And `llama-bench` crashes out of the box, even when no GPU layers are indicated. The initial statement is positiv:
+
+```
+Log start
+main: build = 2275 (a33e6a0d)
+main: built with gcc (GCC) 8.5.0 for aarch64-unknown-linux-gnu
+main: seed  = 1743182462
+ggml_init_cublas: GGML_CUDA_FORCE_MMQ:   no
+ggml_init_cublas: CUDA_USE_TENSOR_CORES: yes
+ggml_init_cublas: found 1 CUDA devices:
+  Device 0: NVIDIA Tegra X1, compute capability 5.3, VMM: no
+llama_model_loader: loaded meta data with 23 key-value pairs and 201 tensors from ..
+...
+llm_load_tensors: offloading 1 repeating layers to GPU
+llm_load_tensors: offloaded 1/23 layers to GPU
+llm_load_tensors:        CPU buffer size =   636,18 MiB
+llm_load_tensors:      CUDA0 buffer size =    23,64 MiB
+....................................................................................
+llama_new_context_with_model: n_ctx      = 512
+```
+
+but then later
+
+``` 
+CUDA error: no kernel image is available for execution on the device
+  current device: 0, in function ggml_cuda_op_flatten at ggml-cuda.cu:9906
+  cudaGetLastError()
+GGML_ASSERT: ggml-cuda.cu:255: !"CUDA error"
+[New LWP 30420]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/aarch64-linux-gnu/libthread_db.so.1".
+0x0000007f8e76ed5c in __waitpid (pid=<optimized out>, stat_loc=0x0, options=<optimized out>) at ../sysdeps/unix/sysv/linux/waitpid.c:30
+30      ../sysdeps/unix/sysv/linux/waitpid.c: No such file or directory.
+#0  0x0000007f8e76ed5c in __waitpid (pid=<optimized out>, stat_loc=0x0, options=<optimized out>) at ../sysdeps/unix/sysv/linux/waitpid.c:30
+30      in ../sysdeps/unix/sysv/linux/waitpid.c
+#1  0x0000000000416370 in ggml_print_backtrace ()
+#2  0x00000000004e6d50 in ggml_cuda_error(char const*, char const*, char const*, int, char const*) [clone .constprop.453] ()
+#3  0x0000000000500138 in ggml_cuda_op_flatten(ggml_tensor const*, ggml_tensor const*, ggml_tensor*, void (*)(ggml_tensor const*, ggml_tensor const*, ggml_tensor*, float const*, float const*, float*, CUstream_st*)) ()
+#4  0x00000000004fe2e8 in ggml_cuda_compute_forward ()
+#5  0x00000000004fe928 in ggml_backend_cuda_graph_compute(ggml_backend*, ggml_cgraph*) ()
+#6  0x000000000050b214 in ggml_backend_sched_graph_compute ()
+#7  0x000000000046a920 in llama_decode_internal(llama_context&, llama_batch) ()
+#8  0x000000000046b730 in llama_decode ()
+#9  0x00000000004b414c in llama_init_from_gpt_params(gpt_params&) ()
+#10 0x000000000040f94c in main ()
+[Inferior 1 (process 30419) detached]
+Aborted (core dumped)
+```
+
+Same result for `llama-bench` after a promising
+
+```
+ggml_init_cublas: GGML_CUDA_FORCE_MMQ:   no
+ggml_init_cublas: CUDA_USE_TENSOR_CORES: yes
+ggml_init_cublas: found 1 CUDA devices:
+  Device 0: NVIDIA Tegra X1, compute capability 5.3, VMM: no
+| model                          |       size |     params | backend    | ngl | test       |              t/s |
+| ------------------------------ | ---------: | ---------: | ---------- | --: | ---------- | ---------------: |
+CUDA error: no kernel image is available for execution on the device
+```
+But at least for a short period of time the GPU is actually utilized:
+
+![image](https://raw.githubusercontent.com/kreier/jetson/refs/heads/main/llama.cpp/CUDA/mk4.png)
+
+from
+```
+llm_load_tensors: offloading 22 repeating layers to GPU
+llm_load_tensors: offloading non-repeating layers to GPU
+llm_load_tensors: offloaded 23/23 layers to GPU
+llm_load_tensors:        CPU buffer size =    35,16 MiB
+llm_load_tensors:      CUDA0 buffer size =   601,02 MiB
 ```
