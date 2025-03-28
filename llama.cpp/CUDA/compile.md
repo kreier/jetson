@@ -39,6 +39,16 @@ cmake -B build -DGGML_CUDA=ON -DLLAMA_CURL=ON
 cmake --build build --config Release
 ```
 
+This does not pick up the correct gcc and nvcc compiler. Let's better specify it:
+
+```
+cmake -B build -DGGML_CUDA=ON -DLLAMA_CURL=ON -DCMAKE_C_COMPILER=/usr/bin/gcc -DCMAKE_CXX_COMPILER=/usr/bin/g++ -DCMAKE_CUDA_COMPILER=/usr/local/cuda-10.2/bin/nvcc
+```
+
+And we get the error message `nvcc fatal   : Unsupported gpu architecture 'compute_80'` since 10.2 only knows about CUDA Compute Capability up to 7.5 (Turing (2018)) and not beyond, like 8.6 Ampere (2020).
+
+
+
 ## Compile with gcc-9 compiler
 
 First install gcc-9. Not sure if it work this way with gcc-8, since the compilation took 3 hours on the Jetson Nano.
