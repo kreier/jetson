@@ -154,7 +154,7 @@ Log end
 
 Now the CPU is only partly used with 650 mW, but the GPU is at 100% and 3.2W:
 
-![image](https://github.com/user-attachments/assets/1b827b9d-5572-4593-b6e4-a254bd868aed)
+![mk2](mk2.png)
 
 ### Benchmarking
 
@@ -201,4 +201,4 @@ And now with the maximum working number of layers, 24. With 25 or no limit it cr
 
 Now both the CPU at 1.9W and the GPU at 2.4W are at 100% and :
 
-![image](https://github.com/user-attachments/assets/3fd22a38-df31-4fdd-ac28-27ec486d9247)
+![mk3.jpg](mk3.png)
