@@ -7,6 +7,16 @@
 
 - [81bc921](https://github.com/ggml-org/llama.cpp/tree/81bc9214a389362010f7a57f4cbc30e5f83a2d28) from December 7, 2023 - [b1618](https://github.com/ggml-org/llama.cpp/tree/b1618)
 - [a33e6a0](https://github.com/ggml-org/llama.cpp/commit/a33e6a0d2a66104ea9a906bdbf8a94d050189d91) from February 26, 2024 - [b2275](https://github.com/ggml-org/llama.cpp/tree/b2275)
+- [5d01670](https://github.com/ggml-org/llama.cpp/commit/5d01670266859444366e4f333ade5e0e5e2ae63d) from March 28, 2025 - [b4984](https://github.com/ggml-org/llama.cpp/tree/b4984)
+
+#### Speed
+
+| version | ngl | pp512 | tg128 | release    | notes    |
+|---------|-----|-------|-------|------------|----------|
+| b4970   | 0   | 6.71  | 4.98  | 2025-03-28 | pure CPU |
+| b1618   | 24  | 54.18 | 3.55  | 2023-12-07 | old!     |
+
+The old GPU version is 8x at promot processing, but only 71% at inference speed for token generation.
 
 ## CPU
 
@@ -21,22 +31,12 @@ Compiled with gcc 8.5.0 and the latest release of ggml-org/llama.cpp
 build: c7b43ab6 (4970)
 ```
 
-## GPU with 81bc921 from 
+
+
+## GPU with 81bc921 from December 7, 2023 to llama.cpp3
 
 ```
-git clone https://github.com/ggml-org/llama.cpp.git llama.cpp2
-cd llama.cpp2/
-git checkout 81bc921
-git checkout -b llamaForJetsonNano
-mkdir build
-cd build/
-cmake .. -DLLAMA_CUBLAS=ON
-```
-
-## GPU with 81bc921 from to llama.cpp3
-
-```
-git clone https://github.com/ggerganov/llama.cpp.git llama.cpp3
+git clone https://github.com/ggml-org/llama.cpp.git llama.cpp3
 cd llama.cpp3/
 git checkout 81bc921
 git checkout -b llamaForJetsonNano
@@ -202,3 +202,54 @@ And now with the maximum working number of layers, 24. With 25 or no limit it cr
 Now both the CPU at 1.9W and the GPU at 2.4W are at 100% and :
 
 ![mk3.jpg](mk3.png)
+
+## GPU with a33e6a0 from February 26, 2024
+
+```
+git clone https://github.com/ggml-org/llama.cpp.git llama.cpp4
+cd llama.cpp4/
+git checkout a33e6a0
+git checkout -b llamaForJetsonNano
+```
+
+### Edit the Makefile
+
+```
+diff --git a/Makefile b/Makefile
+index 068f6ed0..a4ed3c95 100644
+--- a/Makefile
++++ b/Makefile
+@@ -106,11 +106,11 @@ MK_NVCCFLAGS = -std=c++11
+ ifdef LLAMA_FAST
+ MK_CFLAGS     += -Ofast
+ HOST_CXXFLAGS += -Ofast
+-MK_NVCCFLAGS  += -O3
++MK_NVCCFLAGS += -maxrregcount=80
+ else
+ MK_CFLAGS     += -O3
+ MK_CXXFLAGS   += -O3
+-MK_NVCCFLAGS  += -O3
++MK_NVCCFLAGS += -maxrregcount=80
+ endif
+
+ ifndef LLAMA_NO_CCACHE
+@@ -299,7 +299,6 @@ ifneq ($(filter aarch64%,$(UNAME_M)),)
+     # Raspberry Pi 3, 4, Zero 2 (64-bit)
+     # Nvidia Jetson
+     MK_CFLAGS   += -mcpu=native
+-    MK_CXXFLAGS += -mcpu=native
+     JETSON_RELEASE_INFO = $(shell jetson_release)
+     ifdef JETSON_RELEASE_INFO
+         ifneq ($(filter TX2%,$(JETSON_RELEASE_INFO)),)
+```
+
+**Manually:** 
+
+- Change `MK_NVCCFLAGS += -O3` to `MK_NVCCFLAGS += -maxrregcount=80` on line 109 and line 113.
+- Remove `MK_CXXFLAGS += -mcpu=native` on line 302.
+
+**Build:**
+
+```
+make LLAMA_CUBLAS=1 CUDA_DOCKER_ARCH=sm_62 -j 6
+```
