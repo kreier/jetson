@@ -4,8 +4,8 @@ Time requirements:
 
 1. Download [image](https://developer.nvidia.com/jetson-nano-sd-card-image) from Nvidia website 6.1 GB, then write image to SD card - **48 minutes**
 2. Start system, set up machine name, user and password **5 min**
-3. Update to 4.9.337 from November 2024 - **30 minutes**
-4. Install ollama and the reference model [TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF](https://huggingface.co/TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF?local-app=ollama)
+3. Update to 4.9.337 from November 2024 - **35 minutes**
+4. Install ollama and the reference model [TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF](https://huggingface.co/TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF?local-app=ollama) - **7 minutes**
 5. Install additional software like `cmake` and `gcc-8` - **3 hours**
 7. Compile llama.cpp b1618 from December 2023 with GPU support
 
