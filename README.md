@@ -64,6 +64,46 @@ Technically the Maxwell GPU with Cuda CC 5.3 should be supported by Cuda 12. But
 
 ### 2) llama.cpp as an alternative? probably only on CPU 2024-04-11
 
+#### CPU only
+
+You can compile and run llama.cpp on the Jetson Nano with a decent speed with the following commands:
+
+```
+sudo apt install libcurl4-openssl-dev
+wget https://github.com/Kitware/CMake/releases/download/v4.0.0/cmake-4.0.0-linux-aarch64.sh
+chmod a+x cmake-4.0.0-linux-aarch64.sh
+./cmake-4.0.0-linux-aarch64.sh
+cd llama.cpp
+../cmake-4.0.0-linux-aarch64/bin/cmake -B build
+
+
+
+
+cd cmake-3.14.0
+sudo ./bootstrap //20 mimutes
+sudo make
+sudo make install
+cmake --version //return the version of cmake
+
+git clone https://github.com/ggml-org/llama.cpp 
+cd llama.cpp
+cmake
+sudo cmake -B build -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ -DLLAMA_CURL=ON
+sudo cmake --build build --config Release
+cmake 
+
+
+
+git checkout 81bc921
+git checkout -b llamaForJetsonNano
+```
+
+#### GPU accelerated b1618 2023-11-03
+
+To be explained
+
+#### GPU accelerated b2268 2024-04-11
+
 The following procedure seems to be obsolete, now that specific entries for the Jetson Nano are included in the Makefile for llama.cpp and even ollama runs out-of-the-box. The gist does not mention the use of the GPU with CUDA for acceleration.
 
 An gist [article by Flor Sanders](https://gist.github.com/FlorSanders/2cf043f7161f52aa4b18fb3a1ab6022f) from April 2024 describes the process of running llama.cpp on a 2GB Jetson Nano. With 4GB it should be possible to run a complete llama3.2:1b model file. But you can't use the provided gcc 7.5 compiler, you need at least 8.5 - so you compile it yourself over night. It needs around 3 hours to complete.
@@ -72,8 +112,7 @@ Since I have a 32GB SDcard and 11 GB free it should be possible to compile GCC 8
 
 ```
 $ export PATH=/usr/local/cuda/bin${PATH:+:${PATH}}
-$ export LD_LIBRARY_PATH=/usr/local/cuda/lib64\
-                         ${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
+$ export LD_LIBRARY_PATH=/usr/local/cuda/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
 ```
 
 The recommended version of llama.cpp to check out is [a33e6a0](https://github.com/ggerganov/llama.cpp/commit/a33e6a0d2a66104ea9a906bdbf8a94d050189d91) from February 26, 2024. The current version of the Makefile has entries for the Jetson [in line 476](https://github.com/ggerganov/llama.cpp/blob/2e2f8f093cd4fb6bbb87ba84f6b9684fa082f3fa/Makefile#L476). It could well be that this only refers to run on the CPU (as with the mentioned Raspberry Pi's) and not using the GPU with CUDA. This aligns with the [error message by VViliams123](https://gist.github.com/FlorSanders/2cf043f7161f52aa4b18fb3a1ab6022f?permalink_comment_id=5219170#gistcomment-5219170) on October 4, 2024.
