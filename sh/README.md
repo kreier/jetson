@@ -1,4 +1,4 @@
-# Install llama.cpp on the Jetson Nano Development Kit 2019 with 4 GB RAM
+# Install llama.cpp on the Jetson Nano Development Kit 2019 with 4 GB RAM in latest version, compiled with gcc 8.5.0
 
 Time requirements:
 
@@ -359,17 +359,6 @@ At 8% the errors about *"__builtin_assume" is undefined* start at:
 - line 73, `nano ggml/src/ggml-cuda/template-instances/../fattn-vec-f16.cuh`
 
 
-
-
-
-
-
-
-
-
-
-
-
 ### Add linker instructions to ggml/CMakeLists.txt
 
 Again `nano ggml/CMakeLists.txt`
@@ -392,12 +381,25 @@ Again `nano ggml/CMakeLists.txt`
 ```
 
 
+### Benchmark
 
+The command is `./build/bin/llama-bench -m ../.cache/llama.cpp/TheBloke_TinyLlama-1.1B-Chat-v1.0-GGUF_tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf`
 
+```
+| model                  |       size | params | backend | ngl |  test |          t/s |
+| -----------------------| ---------: | -----: | ------- | --: | ----: | -----------: |
+| llama 1B Q4_K - Medium | 636.18 MiB | 1.10 B | CUDA    |  99 | pp512 | 80.68 ± 0.06 |
+| llama 1B Q4_K - Medium | 636.18 MiB | 1.10 B | CUDA    |  99 | tg128 |  6.53 ± 0.02 |
 
+build: 6e1531ac (4400)
+```
 
+And it is a similar result with 24 layers. CPU is in the range of 20% while the GPU is at 100%. Without the GPU this build gets:
 
-
+| model                  |       size | params | backend | ngl |  test |          t/s |
+| -----------------------| ---------: | -----: | ------- | --: | ----: | -----------: |
+| llama 1B Q4_K - Medium | 636.18 MiB | 1.10 B | CUDA    |   0 | pp512 | 69.50 ± 0.21 |
+| llama 1B Q4_K - Medium | 636.18 MiB | 1.10 B | CUDA    |   0 | tg128 |  3.05 ± 0.02 |
 
 
 
