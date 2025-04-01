@@ -53,7 +53,7 @@ sudo apt upgrade -n
 At this point you can already run your first LLM with pure CPU support on your system. The fastest way is [ollama](https://ollama.com/). You can install it with
 
 ``` sh
-sudo apt install curl
+sudo apt install curl libcurl4-openssl-dev
 curl -fsSL https://ollama.com/install.sh | sh
 >>> Installing ollama to /usr/local
 >>> Downloading Linux arm64 bundle
@@ -77,12 +77,35 @@ And after **7 minutes** its ready for questions like `How many R's are in the wo
 
 ## 5. Install additional packages
 
-Add the following sofware packages with these three lines in the next **10 minutes**:
+Install `jetpack`, `cmake` and `gcc-8` with just 
 
 ```
+curl -fsSL https://kreier.github.io/jetson/sh/step5.sh | sh
+```
+
+or add the following sofware packages with these three lines in the next **10 minutes**:
+
+```
+sudo apt update
 sudo apt install python3-pip nvidia-tensorrt nano -y
 sudo apt install nvidia-jetpack -y
 sudo pip3 install -U jetson-stats
+sudo apt install build-essential software-properties-common manpages-dev -y
+sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
+sudo apt update
+sudo apt install gcc-8 g++-8 -y
+sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-8 8
+sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-8 8
+sudo apt-get install libssl-dev -y
+wget https://cmake.org/files/v3.27/cmake-3.27.1.tar.gz
+tar -xzvf cmake-3.27.1.tar.gz
+cd cmake-3.27.1
+./bootstrap
+make -j4
+sudo make install
+gcc --version
+g++ --version
+cmake --version
 ```
 
 Add the following lines to ~/.bashrc at the end with `nano ~/.bashrc`
@@ -91,6 +114,84 @@ Add the following lines to ~/.bashrc at the end with `nano ~/.bashrc`
 export PATH=/usr/local/cuda/bin${PATH:+:${PATH}}
 export LD_LIBRARY_PATH=/usr/local/cuda/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
 ```
+
+
+- Kernel GNU/Linux 4.9.337-tegra
+- JetPack 32.7.6-20241104234540 [L4T 32.7.6] `dpkg-query --show nvidia-l4t-core`
+- Compiler gcc Ubuntu/Linaro 8.4.0-1ubuntu1~18.04) 8.4.0 `gcc --version`
+- cmake 3.27.1 `cmake --version`
+
+
+
+Some good ideas are written at https://github.com/dnovischi/jetson-tutorials/blob/main/jetson-nano-ubuntu-18-04-install.md
+
+- Jetpack 4.6.1-b110 `sudo apt-cache show nvidia-jetpack`
+
+
+
+## 6. Compile llama.cpp for CPU
+
+You need to use gcc-9, with gcc-8 you get errors regarding `llama.cpp/ggml/src/ggml-cpu/ggml-cpu-impl.h:313:27: error: invalid initializer` and in `llama.cpp/ggml/src/ggml-cpu/ggml-cpu-quants.c:8615:40:` regarding `ggml_uint8x16x4_t q6bits = ggml_vld1q_u8_x4(q6); q6 += 64;`. Using gcc-9 all these errors disappear. Installation takes 5 minutes with
+
+``` sh
+sudo apt install gcc-9 g++-9 -y
+sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-9 9
+sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-9 9
+sudo apt install libcurl4-openssl-dev
+```
+
+After that you can just follow the instructions from the llama.cpp website below. We added the `-DLLAMA_CURL=ON` option to the build process. It allows to download models directly from the huggingface website with the `-hf` option (see example below). The last compilation step takes 60 minutes.
+
+``` sh
+git clone https://github.com/ggml-org/llama.cpp
+cd llama.cpp
+cmake -B build -DLLAMA_CURL=ON
+cmake --build build --config Release
+```
+
+Now let's download and run our first model:
+
+``` sh
+./build/bin/llama-cli -hf TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF:Q4_K_M
+```
+
+## 7. Compile with GPU support b
+
+Download the specific version with
+
+``` sh
+git clone https://github.com/ggerganov/llama.cpp.git  
+cd llama.cpp
+git checkout 81bc921
+git checkout -b llamaForJetsonNano
+mkdir build && cd build
+cmake .. -DLLAMA_CUBLAS=ON
+make -j 2
+```
+
+You likely get an error message `"identifier 'CUBLAS_TF32_TENSOR_OP_MATH' not found"` but this can be fized to include in file `llama.cpp/ggml-cuda.cu` above the `#include` statement:
+
+```
+#if CUDA_VERSION < 1100
+  #define CUBLAS_TF32_TENSOR_OP_MATH CUBLAS_TENSOR_OP_MATH
+  #define CUBLAS_COMPUTE_16F CUDA_R_16F
+  #define CUBLAS_COMPUTE_32F CUDA_R_32F
+#endif
+```
+
+Now again `make -j 2`.
+
+
+
+
+## 95. Compile llama.cpp b1618 with GPU support
+
+Let's start with b1618 and gcc 8.5.
+
+
+
+
+## 99. remnants
 
 Install `cmake` and `gcc-8` with just 
 
@@ -112,35 +213,7 @@ gcc --version
 g++ --version
 ```
 
-- Kernel GNU/Linux 4.9.337-tegra
-- JetPack 32.7.6-20241104234540 [L4T 32.7.6] `dpkg-query --show nvidia-l4t-core`
 
-
-
-
-Some good ideas are written at https://github.com/dnovischi/jetson-tutorials/blob/main/jetson-nano-ubuntu-18-04-install.md
-
-- Jetpack 4.6.1-b110 `sudo apt-cache show nvidia-jetpack`
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-## 4. Update the system
 
 This part will take 5 hours when executing all the steps outlined below. I wrote a script to run all steps automatically, just enter the following line:
 
@@ -180,7 +253,4 @@ Or with alternatives:
 sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-9 60 --slave /usr/bin/g++ g++ /usr/bin/g++-9
 sudo apt install  gcc-9  g++-9
 ```
-
-## 5. Compile llama.cpp b1618 with GPU support
-
-Let's start with b1618 and gcc 8.5.
+ 
