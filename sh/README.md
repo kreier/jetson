@@ -6,8 +6,10 @@ Time requirements:
 2. Start system, set up machine name, user and password **5 min**
 3. Update to 4.9.337 from November 2024 - **35 minutes**
 4. Install ollama and the reference model [TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF](https://huggingface.co/TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF?local-app=ollama) - **7 minutes**
-5. Install additional software like `cmake` and `gcc-8` - **3 hours**
-7. Compile llama.cpp b1618 from December 2023 with GPU support
+5. Install additional software like **cmake** and **gcc 8.5.0** - **3 hours**
+6. Compile llama.cpp for CPU with gcc 8.5.0 and latest llama.cpp from April 2025 - **2 hours**
+7. Compile with GPU support b1618 from December 7, 2023 - 81bc921 - **3 hours**
+8. Compile llama.cpp with GPU support and gcc 8.5.0 from April 2025 - **4 hours**
 
 ## 1. Download Ubuntu 18.04.6 LTS image from Nvidia and write to SD Card
 
@@ -166,7 +168,7 @@ Now let's download and run our first model:
 Download the specific version ([81bc921](https://github.com/ggml-org/llama.cpp/tree/81bc9214a389362010f7a57f4cbc30e5f83a2d28) from December 7, 2023 - [b1618](https://github.com/ggml-org/llama.cpp/tree/b1618)) and try to compile it with GPU support.
 
 ``` sh
-git clone https://github.com/ggerganov/llama.cpp llama.cpp.1618.gpu
+git clone https://github.com/ggml-org/llama.cpp llama.cpp.1618.gpu
 cd llama.cpp.1618.gpu
 git checkout 81bc921
 git checkout -b llamaForJetsonNano
@@ -277,28 +279,162 @@ The command is `./build/bin/llama-bench -m ../.cache/llama.cpp/TheBloke_TinyLlam
 | 20  | 39.35 | 3.54  |
 | 24  | 55.52 | 3.68  |
 
-### 7.5
+> build: 2bb3597e (5017) from April 2025
+
+| ngl | pp512 | tg128 |
+|-----|-------|-------|
+| 0   |  6.73 | 5.18  |
+
+
+### 7.5 Version history for gcc
 
 The [version history of gcc](https://gcc.gnu.org/releases.html) indicates:
 
 - gcc 9.5 - May27, 2022
-- gcc 9.4 - June 1, 2021
-- gcc 8.5 - May 14, 2021
-- gcc 8.4 - March 4, 2020
+- gcc 9.4 - June 1, 2021 - from `ppa:ubuntu-toolchain-r/test`
+- gcc 8.5 - May 14, 2021 - has to be compiled in 3 hours time
+- gcc 8.4 - March 4, 2020 - from `ppa:ubuntu-toolchain-r/test`
 
-### 7.4 Try the finished image with 20.04 and gcc-8 and gcc-9
+``` sh
+sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
+sudo apt update
+sudo apt install gcc-8 g++-8 -y
+sudo apt install gcc-9 g++-9 -y
+sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-9 100
+sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-9 100
+```
+
+GCC 8.4 does not compile llama.cpp.
+
+
+
+
+## 8. Newer version a133566 (4400) from January 2025 or 8293970 (5016) from April 2025 
+
+Using gcc 8.5.0 you can simply follow the install script for pure CPU and it will run out of the box. For GPU there are a few things to add:
+
+```
+git clone https://github.com/ggml-org/llama.cpp llama.cpp.4400.gpu
+cd llama.cpp.4400.gpu/
+git checkout 6e1531a
+git checkout -b llamaForJetsonNano
+```
+
+### Include architecture limit in CMakeLists.txt
+
+Add the following with `nano CMakeLists.txt`:
+
+```
+if(NOT DEFINED ${CMAKE_CUDA_ARCHITECTURES})
+    set(CMAKE_CUDA_ARCHITECTURES 50 61)
+endif()
+```
+
+
+### Add a flag to avoid the *Target "ggml-cuda" requires the language dialect "CUDA17" (with compiler   extensions).* error
+
+This is from [nocoffei.com](https://nocoffei.com/?p=352) regarding the Nintendo Switch 1 (has the same Tegra X1 CPU and Maxwell GPU, but 256 CUDA cores with CC 5.3 instead of 128 CC 5.2 on the Jetson):
+
+```
+cmake -B build -DGGML_CUDA=ON -DLLAMA_CURL=ON -DCMAKE_CUDA_STANDARD=14 -DCMAKE_CUDA_STANDARD_REQUIRED=true -DGGML_CPU_ARM_ARCH=armv8-a -DGGML_NATIVE=off
+cmake --build build --config Release
+```
+
+
+Now at 3% we're at compiler error messages:
+
+### Remove the *cpmstexpr* from line 348 - a feature from CUDA C++ 17 that we don't support anyway
+
+The error is `ggml/src/ggml-cuda/common.cuh(348): error: A __device__ variable cannot be marked constexpr` and the solution is to simply remove **constexpr** from this line using `nano ggml/src/ggml-cuda/common.cuh`:
+
+``` h
+// TODO: move to ggml-common.h
+static __device__ int8_t kvalues_iq4nl[16] = {-127, -104, -83, -65, -49, -35, -22, -10, 1, 13, 25, 38, 53, 69, 89, 113};
+```
+
+At 8% the errors about *"__builtin_assume" is undefined* start at:
+
+- line 532, `nano ggml/src/ggml-cuda/fattn-common.cuh`
+- line 70, `nano ggml/src/ggml-cuda/fattn-vec-f32.cuh`
+- line 73, `nano ggml/src/ggml-cuda/template-instances/../fattn-vec-f16.cuh`
+
+
+
+
+
+
+
+
+
+
+
+
+
+### Add linker instructions to ggml/CMakeLists.txt
+
+Again `nano ggml/CMakeLists.txt`
+
+``` h
+@@ -246,6 +246,8 @@ set(GGML_PUBLIC_HEADERS
+     include/ggml-vulkan.h)
+ 
+ set_target_properties(ggml PROPERTIES PUBLIC_HEADER "${GGML_PUBLIC_HEADERS}")
++target_link_libraries(ggml PRIVATE stdc++fs)
++add_link_options(-Wl,--copy-dt-needed-entries)
+ #if (GGML_METAL)
+ #    set_target_properties(ggml PROPERTIES RESOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/ggml-metal.metal")
+ #endif()
+
+@@ -277,3 +262,9 @@ if (GGML_STANDALONE)
+     install(FILES ${CMAKE_CURRENT_BINARY_DIR}/ggml.pc
+         DESTINATION share/pkgconfig)
+ endif()
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+### Remove the unsupported *cuda_bf16.h* from cuda.h (new entry January 2025)
+
+For the error `ggml/src/ggml-cuda/vendors/cuda.h:6:10: fatal error: cuda_bf16.h: No such file or directory` we just comment line in the `cuda.h` with `nano ggml/src/ggml-cuda/vendors/cuda.h`
+
+``` h
+#include <cublas_v2.h>
+//#include <cuda_bf16.h>
+#include <cuda_fp16.h>
+```
+
+
+
+
+
+
+
+### 9. Try the finished image with 20.04 and gcc-8 and gcc-9
 
 Available here:
 
 https://github.com/Qengineering/Jetson-Nano-Ubuntu-20-image
 
 https://github.com/Qengineering
-
-
-
-## 95. Compile llama.cpp b1618 with GPU support
-
-Let's start with b1618 and gcc 8.5.
 
 
 
