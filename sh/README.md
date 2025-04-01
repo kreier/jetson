@@ -73,7 +73,7 @@ And after **7 minutes** its ready for questions like `How many R's are in the wo
 
 > prompt eval rate: 9.04 tokens/s - eval rate: 6.62 tokens/s
 
-
+> prompt eval rate: 8.36 tokens/s - eval rate: 5.04 tokens/s
 
 ## 5. Install additional packages
 
@@ -127,7 +127,9 @@ Some good ideas are written at https://github.com/dnovischi/jetson-tutorials/blo
 
 - Jetpack 4.6.1-b110 `sudo apt-cache show nvidia-jetpack`
 
+> prompt eval 6,79 tokens per second - eval 5,08 tokens per second
 
+> prompt eval rate: 8.36 tokens/s - eval rate: 5.04 tokens/s
 
 ## 6. Compile llama.cpp for CPU
 
@@ -155,13 +157,17 @@ Now let's download and run our first model:
 ./build/bin/llama-cli -hf TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF:Q4_K_M
 ```
 
-## 7. Compile with GPU support b
+> prompt eval 6,79 tokens per second - eval 5,08 tokens per second
 
-Download the specific version with
+> prompt eval rate: 8.36 tokens/s - eval rate: 5.04 tokens/s
+
+## 7. Compile with GPU support b1618 from December 7, 2023 - 81bc921
+
+Download the specific version ([81bc921](https://github.com/ggml-org/llama.cpp/tree/81bc9214a389362010f7a57f4cbc30e5f83a2d28) from December 7, 2023 - [b1618](https://github.com/ggml-org/llama.cpp/tree/b1618)) and try to compile it with GPU support.
 
 ``` sh
-git clone https://github.com/ggerganov/llama.cpp.git  
-cd llama.cpp
+git clone https://github.com/ggerganov/llama.cpp llama.cpp.1618.gpu
+cd llama.cpp.1618.gpu
 git checkout 81bc921
 git checkout -b llamaForJetsonNano
 mkdir build && cd build
@@ -171,7 +177,7 @@ make -j 2
 
 You likely get an error message `"identifier 'CUBLAS_TF32_TENSOR_OP_MATH' not found"` but this can be fized to include in file `llama.cpp/ggml-cuda.cu` above the `#include` statement:
 
-```
+``` h
 #if CUDA_VERSION < 1100
   #define CUBLAS_TF32_TENSOR_OP_MATH CUBLAS_TENSOR_OP_MATH
   #define CUBLAS_COMPUTE_16F CUDA_R_16F
@@ -181,6 +187,112 @@ You likely get an error message `"identifier 'CUBLAS_TF32_TENSOR_OP_MATH' not fo
 
 Now again `make -j 2`.
 
+### 7.1 Try gcc 9.4.0
+
+This won't work, because `nvcc` only supports gcc up to version 8. The error message is:
+
+``` sh
+/usr/local/cuda/bin/../targets/aarch64-linux/include/crt/host_config.h:138:2:
+error: #error -- unsupported GNU version! gcc versions later than 8 are not
+supported!
+
+  138 | #error -- unsupported GNU version! gcc versions later than 8 are not supported!
+```
+
+The reason is line 136 in the file `/usr/local/cuda/targets/aarch64-linux/include/crt/host_config.h`.
+
+``` h
+#if defined (__GNUC__)
+
+#if __GNUC__ > 8
+
+#error -- unsupported GNU version! gcc versions later than 8 are not supported!
+
+#endif /* __GNUC__ > 8 */      
+```
+
+### 7.2 Try with gcc 8.4.0
+
+If you try to compile with gcc 8.4.0 installed from `sudo add-apt-repository ppa:ubuntu-toolchain-r/test` and a followed `sudo apt install gcc-8 g++-8` you only get gcc 8.4.0 from March 4, 2020. It shows an error with 
+
+``` sh
+/home/mk/llama.cpp.1618.gpu/ggml-quants.c: In function ‘ggml_vec_dot_q3_K_q8_K’:
+/home/mk/llama.cpp.1618.gpu/ggml-quants.c:407:27: error: implicit declaration of function ‘vld1q_s8_x4’; did you mean ‘vld1q_s8_x’? [-Werror=implicit-function-declaration]
+ #define ggml_vld1q_s8_x4  vld1q_s8_x4
+```
+
+So you need at least [gcc 8.5.0](https://gcc.gnu.org/gcc-8/changes.html#GCC8.5) and unfortunately this has to be compiled from scratch. This will take more than 3 hours. This version is from May 14, 2021. 
+
+### 7.3 Compile gcc 8.5.0
+
+The `make -j$(nproc)` will take 3 hours.
+
+``` sh
+sudo apt-get install -y build-essential software-properties-common
+sudo apt-get install -y libgmp-dev libmpfr-dev libmpc-dev
+wget http://ftp.gnu.org/gnu/gcc/gcc-8.5.0/gcc-8.5.0.tar.gz
+tar -xvzf gcc-8.5.0.tar.gz
+cd gcc-8.5.0
+./contrib/download_prerequisites
+mkdir build && cd build
+../configure --enable-languages=c,c++ --disable-multilib
+make -j$(nproc)  # Use all CPU cores
+sudo make install
+sudo update-alternatives --install /usr/bin/gcc gcc /usr/local/bin/gcc 100
+sudo update-alternatives --install /usr/bin/g++ g++ /usr/local/bin/g++ 100
+```
+
+Now you can successfully compile version b1618, see section 7.
+
+
+### 7.4 Speed results
+
+Inference speed is significantly lower than newer versions of llama.cpp from early 2025. Just for CPU inference we use `./build/bin/main -m ../.cache/llama.cpp/TheBloke_TinyLlama-1.1B-Chat-v1.0-GGUF_tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf -p "The american civil war"`
+
+> prompt eval 4.01 tokens per second - eval 2.32 tokens per second
+
+Now with offloading 22 layers to the GPU: `./build/bin/main -m ../.cache/llama.cpp/TheBloke_TinyLlama-1.1B-Chat-v1.0-GGUF_tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf --n-gpu-layers 33 -p "The american civil war"`
+
+It uses 100% of the GPU and 1.2G of Shared RAM while the CPU is at only around 20%.
+
+> prompt eval 5.07 tokens per second - eval 3.79 tokens per second
+
+#### Benchmark
+
+The command is `./build/bin/llama-bench -m ../.cache/llama.cpp/TheBloke_TinyLlama-1.1B-Chat-v1.0-GGUF_tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf --n-gpu-layers 24`
+
+| model                         |       size | params | backend | ngl | test   |          t/s |
+| ----------------------------- | ---------: | -----: | ------- | --: | ------ | -----------: |
+| llama ?B mostly Q4_K - Medium | 636.18 MiB | 1.10 B | CUDA    |  24 | pp 512 | 52.64 ± 1.74 |
+| llama ?B mostly Q4_K - Medium | 636.18 MiB | 1.10 B | CUDA    |  24 | tg 128 |  3.40 ± 0.02 |
+
+> build: 81bc9214 (1618)
+
+| ngl | pp512 | tg128 |
+|-----|-------|-------|
+| 0   | 17.80 | 2.59  |
+| 5   | 20.57 | 3.00  |
+| 10  | 24.09 | 2.83  |
+| 15  | 31.69 | 3.39  |
+| 20  | 39.35 | 3.54  |
+| 24  | 55.52 | 3.68  |
+
+### 7.5
+
+The [version history of gcc](https://gcc.gnu.org/releases.html) indicates:
+
+- gcc 9.5 - May27, 2022
+- gcc 9.4 - June 1, 2021
+- gcc 8.5 - May 14, 2021
+- gcc 8.4 - March 4, 2020
+
+### 7.4 Try the finished image with 20.04 and gcc-8 and gcc-9
+
+Available here:
+
+https://github.com/Qengineering/Jetson-Nano-Ubuntu-20-image
+
+https://github.com/Qengineering
 
 
 
