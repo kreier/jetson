@@ -19,7 +19,6 @@ As of April 2025 the current version of llama.cpp can be compiled for the Jetson
 
 And the Jetson Nano indeed uses its GPU to generate tokens with 100% and 4 Watt, while the CPU is only used in the 10% range with 0.7 Watt. If it is faster than the pure CPU use with ollama or a CPU build - see the benchmark section!
 
-<><>
 <img src="1x1.png" width="21%"><img src="llama5038gpu.png" width="70%">
 <!--
 ![jtop usage](llama5038gpu.png)
@@ -237,6 +236,14 @@ Using just the CPU version with a newer llama.cpp b5017 from April 2025 we get a
 |-----|-------|-------|
 | 0   |  6.73 | 5.18  |
 
+![TinyLlama](TinyLlama.png)
+
+**Explanation**: Earlier editions of llama.cpp like b1618 from December 2023 or b4400 from December 2024 got faster in all their metrics with improvements to their code. The native speed of a CPU compile from April 2025 (b5036) has the same speed (within error) as a CPU build from ollama 0.6.4 from the same time for both pp and tg.
+
+The main metric to compare here is the **token generation**. Initial versions with GPU acceleration with all layers in December 2023 was slower than the current CPU version (3.94 vs. 5.25), by the end of 2024 the GPU is accelerating the token generation, and with CUDA it is around **20% faster** (5.25 vs. 6.28 average)!
+
+As expected, the prompt processing is even further accelerated, since it is very compute intensive. But it only contributes to a small time amount of the final answer. *Another observation:* A GPU optimized version is significantly slower than a CPU optimized version for the Jetson with the shared memory architecture when not all layers are offloaded to the GPU.
+
 ### Gemma3:1b 2025-03-12
 
 This much more recent [model from March 2025](https://huggingface.co/ggml-org/gemma-3-1b-it-GGUF?local-app=llama.cpp) is slightly larger with 806 MB but much more capable than TinyLlama, and comparable in speed. The prompt is "Explain quantum entanglement"
@@ -247,15 +254,22 @@ llama-cli -hf unsloth/gemma-3-1b-it-GGUF:Q4_K_M
 ./build/bin/llama-bench -m ../.cache/llama.cpp/ggml-org_gemma-3-1b-it-GGUF_gemma-3-1b-it-Q4_K_M.gguf --n-gpu-layers 0
 ```
 
-Result:
+There is also an integrated benchmark program `build/bin/llama-bench -m ggml-org/gemma-3-1b-it-GGUF` in llama.cpp. The results for prompt processing seem artificially high, but demonstrate a dependence on the number of layers used:
+
+|       layers      |   0   |   5   |   10   |   15   |   20   |   25   |   27   |  CPU |
+|:-----------------:|:-----:|:-----:|:------:|:------:|:------:|:------:|:------:|:----:|
+| prompt processing | 96.63 | 97.41 | 100.46 | 105.14 | 109.68 | 113.95 | 115.75 | 7.47 |
+|  token generation |  2.57 |  2.86 |   3.21 |   3.65 |   4.21 |   5.01 |   5.84 | 4.27 |
+
+A general result of the benchmark looks like this:
 
 ``` sh
 ggml_cuda_init: found 1 CUDA devices:
   Device 0: NVIDIA Tegra X1, compute capability 5.3, VMM: no
 | model                   |       size |   params | backend | ngl |  test |           t/s |
 | ----------------------- | ---------: | -------: | ------- | --: | ----: | ------------: |
-| gemma3 1B Q4_K - Medium | 762.49 MiB | 999.89 M | CUDA    |  25 | pp512 | 115.05 ± 0.08 |
-| gemma3 1B Q4_K - Medium | 762.49 MiB | 999.89 M | CUDA    |  25 | tg128 |   5.03 ± 0.01 |
+| gemma3 1B Q4_K - Medium | 762.49 MiB | 999.89 M | CUDA    |  27 | pp512 | 115.75 ± 0.08 |
+| gemma3 1B Q4_K - Medium | 762.49 MiB | 999.89 M | CUDA    |  27 | tg128 |   5.84 ± 0.01 |
 
 build: 193c3e03 (5038)
 ```
