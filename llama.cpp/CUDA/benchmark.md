@@ -1,25 +1,47 @@
 # Benchmarking llama.cpp with and without GPU/CUDA support
 
 - CC:     gcc (GCC) 8.5.0
-- CSS:    g++ (GCC) 8.5.0
+- CXX:    g++ (GCC) 8.5.0
 - NVCC:   Build cuda_10.2_r440.TC440_70.29663091_0
 
-See this Gist: [FlorSanders/JetsonNano2GB_LlamaCpp_SetupGuide.md](https://gist.github.com/FlorSanders/2cf043f7161f52aa4b18fb3a1ab6022f)
-
-#### Versions
+### Versions of llama.cpp
 
 - [81bc921](https://github.com/ggml-org/llama.cpp/tree/81bc9214a389362010f7a57f4cbc30e5f83a2d28) from December 7, 2023 - [b1618](https://github.com/ggml-org/llama.cpp/tree/b1618)
 - [a33e6a0](https://github.com/ggml-org/llama.cpp/commit/a33e6a0d2a66104ea9a906bdbf8a94d050189d91) from February 26, 2024 - [b2275](https://github.com/ggml-org/llama.cpp/tree/b2275)
 - [5d01670](https://github.com/ggml-org/llama.cpp/commit/5d01670266859444366e4f333ade5e0e5e2ae63d) from March 28, 2025 - [b4984](https://github.com/ggml-org/llama.cpp/tree/b4984)
 
-#### Speed
+### Versions of gcc
+
+The [version history of gcc](https://gcc.gnu.org/releases.html) indicates:
+
+- gcc 9.5 - May27, 2022
+- gcc 9.4 - June 1, 2021 - from ppa:ubuntu-toolchain-r/test
+- gcc 8.5 - May 14, 2021 - has to be compiled in 3 hours time
+- gcc 8.4 - March 4, 2020 - from ppa:ubuntu-toolchain-r/test
+
+### Sources
+
+- 2025-03-26 [LLAMA.CPP on NVIDIA Jetson Nano: A Complete Guide](https://medium.com/@anuragdogra2192/llama-cpp-on-nvidia-jetson-nano-a-complete-guide-fb178530bc35), Running LLAMA.cpp on Jetson Nano 4 GB with CUDA 10.2 by Anurag Dogra on medium.com. His modifications compile an older version of llama.cpp with `gcc 8.5` successfully. Because the codebase for llama.cpp is rather old, the performance with GPU support is significantly worse than current versions running purely on the CPU. This motivated to get a more recent llama.cpp version to be compiled. He uses the version [81bc921](https://github.com/ggml-org/llama.cpp/tree/81bc9214a389362010f7a57f4cbc30e5f83a2d28) from December 7, 2023 - [b1618](https://github.com/ggml-org/llama.cpp/tree/b1618) of llama.cpp.
+- 2025-01-13 Guide to compile a recent llama.cpp with CUDA support for the Nintendo Switch at [nocoffei.com](https://nocoffei.com/?p=352), titled "Switch AI ✨". The Nintendo Switch 1 has the same Tegra X1 CPU and Maxwell GPU as the Jetson Nano, but 256 CUDA cores instead of just 128, and a higher clock rate. This article was the main source for this gist.
+- 2024-04-11 [Setup Guide for `llama.cpp` on Nvidia Jetson Nano 2GB](https://gist.github.com/FlorSanders/2cf043f7161f52aa4b18fb3a1ab6022f) by Flor Sanders in a gist. He describes the steps to install the `gcc 8.5` compiler on the Jetson. In step 5 he checks out the version [a33e6a0](https://github.com/ggml-org/llama.cpp/commit/a33e6a0d2a66104ea9a906bdbf8a94d050189d91) from February 26, 2024 - [b2275](https://github.com/ggml-org/llama.cpp/tree/b2275)
+- 2024-05-04 [Add binary support for Nvidia Jetson Nano- JetPack 4 #4140](https://github.com/ollama/ollama/issues/4140) on issues for ollama. In his initial statement dtischler assumes llama.cpp would require gcc-11, but it actually compiles fine with gcc-8 in version 8.5 from 
+
+## Speed with Gemma3:1b
+
+First download with `./build/bin/llama-cli -hf unsloth/gemma-3-1b-it-GGUF:Q4_K_M`. The results:
+
+
+
+## Speed with
+
+This uses 
 
 | version | ngl | pp512 | tg128 | release    | notes    |
 |---------|-----|-------|-------|------------|----------|
 | b4970   | 0   | 6.71  | 4.98  | 2025-03-28 | pure CPU |
 | b1618   | 24  | 54.18 | 3.55  | 2023-12-07 | old!     |
 
-The old GPU version is 8x at promot processing, but only 71% at inference speed for token generation.
+The old GPU version is 8x at prompt processing, but only 71% at inference speed for token generation.
 
 ## CPU
 
