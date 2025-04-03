@@ -3,19 +3,23 @@
 As of April 2025 the current version of llama.cpp can be compiled for the Jetson Nano from 2019 with GPU/CUDA support using `gcc 8.5` and `nvcc 10.2`. A few variants are described here by their build date, and later compared by their performance in benchmarks:
 
 - 2025-04-04 **b5050** Some extra steps had to be included to handle the new support of `bfloat16` in llama.cpp since January 2025. Procedure is described in [this gist](https://github.com/ggml-org/llama.cpp/releases/tag/b4400).
-- 2024-12-31 [b4400](https://github.com/ggml-org/llama.cpp/releases/tag/b4400) Following the steps from the [gist](https://github.com/ggml-org/llama.cpp/releases/tag/b4400) above, step 6 can be ommited.
+- 2024-12-31 [b4400](https://github.com/ggml-org/llama.cpp/releases/tag/b4400) Following the steps from the [gist](https://github.com/ggml-org/llama.cpp/releases/tag/b4400) above, step 6 can be ommited. Source: a [build for the Nintendo Switch](https://nocoffei.com/?p=352)!
 - 2024-02-26 [b2275](https://github.com/ggml-org/llama.cpp/tree/b2275) A [gist by Flor Sanders](https://gist.github.com/FlorSanders/2cf043f7161f52aa4b18fb3a1ab6022f) from 2024-04-11 describes the procedure to combile a version with GPU acceleration.
 - 2023-12-07 [b1618](https://github.com/ggml-org/llama.cpp/tree/b1618) A medium.com article from Anurag Dogra from 2025-03-26 describes the modification needed to compile llama.cpp with `gcc 8.5` and CUDA support.
 
-Parts of the gist are copied here:
+## Structure
 
-- Prerequisites
-- Procedure
-- Benchmark
-- Compile llama.cpp for CPU mode - 24 minutes
-- Install prerequisites
-- Choosing the right compiler
-- Sources
+- [Prerequisites](https://github.com/kreier/jetson/tree/main/llama.cpp#prerequisites)
+- [Procedure](https://github.com/kreier/jetson/tree/main/llama.cpp#procedure)
+- [Benchmark](https://github.com/kreier/jetson/tree/main/llama.cpp#benchmark)
+- [Compile llama.cpp for CPU mode](https://github.com/kreier/jetson/tree/main/llama.cpp#compile-llamacpp-for-cpu-mode) - 24 minutes
+- [Install prerequisites](https://github.com/kreier/jetson/tree/main/llama.cpp#install-prerequisites)
+- [Choosing the right compiler](https://github.com/kreier/jetson/tree/main/llama.cpp#choosing-the-right-compiler)
+- [Sources](https://github.com/kreier/jetson/tree/main/llama.cpp#sources)
+
+And the Jetson Nano indeed uses its GPU to generate tokens with 100% and 4 Watt, while the CPU is only used in the 10% range with 0.7 Watt. If it is faster than the pure CPU use with ollama or a CPU build - see the benchmark section!
+
+![jtop usage](llama5038gpu.png)
 
 ## Prerequisites
 
@@ -28,7 +32,7 @@ You will need the following software packages installed. The section "[Install p
 
 ## Procedure
 
-To ensure this gist keeps working in the future, while llama.cpp gets new versions, we're cloning the repository and then check out a version known to be working. If you want to try a more recent variant omit the steps `git checkout 3f9da22` and `git checkout -b llamaJetsonNanoCUDA` in the following instructions:
+To ensure this gist keeps working in the future, while newer versions of llama.cpp are released, we will check out a specific version (b5050) known to be working. To try a more recent version remove the steps `git checkout 3f9da22` and `git checkout -b llamaJetsonNanoCUDA` in the following instructions:
 
 ### 1. Clone repository
 
@@ -39,7 +43,7 @@ git checkout 3f9da22
 git checkout -b llamaJetsonNanoCUDA
 ```
 
-Now we have to make changes to these 6 files before calling cmake to start compiling:
+Now we have to make changes to these 6 files before calling `cmake` to start compiling:
 
 - CMakeLists.txt 14
 - ggml/CMakeLists.txt 274
@@ -58,7 +62,7 @@ Early 2025 llama.cpp started supporting and using `bfloat16`, a feature not incl
     - ggml/src/ggml-cuda/convert.cu
     - ggml/src/ggml-cuda/mmv.cu
 
-Details are described in step 2 to 7:
+Details for each option are described below in step 2 to 7:
 
 ### 2. Add a limit to the CUDA architecture in `CMakeLists.txt`
 
@@ -73,7 +77,7 @@ endif()
 
 ### 3. Add two linker instructions after line 274 in `ggml/CMakeLists.txt`
 
-Edit the file with `nano ggml/CMakeLists.txt` and enter two new lines after `set_target_properties(ggml PROPERTIES PUBLIC_HEADER "${GGML_PUBLIC_HEADERS}")`. It should then look like:
+Edit the file with `nano ggml/CMakeLists.txt` and enter two new lines after `set_target_properties(ggml PROPERTIES PUBLIC_HEADER "${GGML_PUBLIC_HEADERS}")` and before `#if (GGML_METAL)`. It should then look like:
 
 ``` h
 set_target_properties(ggml PROPERTIES PUBLIC_HEADER "${GGML_PUBLIC_HEADERS}")
@@ -84,6 +88,9 @@ add_link_options(-Wl,--copy-dt-needed-entries)
 #endif()
 ```
 
+With `target_link_libraries(ggml PRIVATE stdc++fs)` and `add_link_options(-Wl,--copy-dt-needed-entries)` we avoid some static link issues that don't appear in later gcc versions. See [nocoffei's comment](https://nocoffei.com/?p=352).
+
+
 ### 4. Remove *cpmstexpr* from line 455 in `ggml/src/ggml-cuda/common.cuh`
 
 This feature from CUDA C++ 17 we don't support anyway, just remove the **constexpr** after the *static* in line 455.1 Use `nano ggml/src/ggml-cuda/common.cuh`. After that it looks like:
@@ -93,13 +100,17 @@ This feature from CUDA C++ 17 we don't support anyway, just remove the **constex
 static __device__ int8_t kvalues_iq4nl[16] = {-127, -104, -83, -65, -49, -35, -22, -10, 1, 13, 25, 38, 53, 69, 89, 113};
 ```
 
-### 5. Comment lines containing *__buildin_assume* with // to avoid compiler error '"__builtin_assume" is undefined':
+### 5. Comment lines containing *__buildin_assume* with // 
+
+This avoids the compiler error *"__builtin_assume" is undefined* for these three files:
 
 - line 623, `nano ggml/src/ggml-cuda/fattn-common.cuh` - 532
 - line 71, `nano ggml/src/ggml-cuda/fattn-vec-f32.cuh` - 70
 - line 73, `nano ggml/src/ggml-cuda/template-instances/../fattn-vec-f16.cuh`
 
-In January 2025 with version $> 4400$ llama.cpp started including support for bfloat16. There is a standard library `cuda_bf16.h` in the folder `/usr/local/cuda-10.2/targets/aarch64-linux/include` for nvcc 11.0 and larger. With more than 5000 lines one can not simply copy a later version this file into this folder (with its companion `cuda_bf16.hpp` and 3800 lines) and hope it would work. Since it is linked to version 11 or 12, the error messages keep expanding (e.g. `/usr/local/cuda/include/cuda_bf16.h:4322:10: fatal error: nv/target: No such file or directory`). We have two working options
+If you have a version lower than 4400 you can skip the next step.
+
+In January 2025 with version larter than b4400 llama.cpp started including support for bfloat16. There is a standard library `cuda_bf16.h` in the folder `/usr/local/cuda-10.2/targets/aarch64-linux/include` for nvcc 11.0 and larger. With more than 5000 lines one can not simply copy a later version this file into this folder (with its companion `cuda_bf16.hpp` and 3800 lines) and hope it would work. Since it is linked to version 11 or 12, the error messages keep expanding (e.g. `/usr/local/cuda/include/cuda_bf16.h:4322:10: fatal error: nv/target: No such file or directory`). We have two working options
 
 ### 6. Option A: Create a `cuda_bf16.h` that redefines `nv_bfloat16` as `half`
 
@@ -141,6 +152,8 @@ namespace cuda {
 #endif // CUDA_BF16_HPP
 ```
 
+Both files should be made executeable? Try `sudo chmod a+x /usr/local/cuda/include/cuda_bf16.h` and `sudo chmod a+x /usr/local/cuda/include/cuda_bf16.hpp`.
+
 
 ### 6. Option B: Comment all code related to `nv_float16` (*bfloat16`) in 3 files
 
@@ -153,7 +166,7 @@ The second solution is to remove all references of `nv_float16` in the 3 files r
 #include <cuda_fp16.h>
 ```
 
-That is not enough, the new data type `nv_bfloat16` is referenced in many files. Replace them with `half`
+That is not enough, the new data type `nv_bfloat16` is referenced 8 times in 2 files. Replace each instance of them with `half`
 
 - 684 in `ggml/src/ggml-cuda/convert.cu`
 - 60 in `ggml/src/ggml-cuda/mmv.cu`
@@ -162,52 +175,44 @@ That is not enough, the new data type `nv_bfloat16` is referenced in many files.
 - 235 in `ggml/src/ggml-cuda/mmv.cu` (2x)
 - 282 in `ggml/src/ggml-cuda/mmv.cu` (2x)
 
-in `ggml/src/ggml-cuda/convert.cu` there are several instances of bfloat16 use cases:
+**DONE!** Now all you have to do is create the build folder with specific instructions, and then wait until the second step is completed to build the release.
 
 
-### 7. Add a flag to avoid the *Target "ggml-cuda" requires the language dialect "CUDA17" (with compiler   extensions).* error
+### 7. Add a flags to `cmake -B build` to avoid the CUDA17 errors
 
-Now it's time to finally call cmake and compile. We add some flags to avoid CUDA17 error messages.
+You will see a few warnings, though. But no error like `Target "ggml-cuda" requires the language dialect "CUDA17" (with compiler extensions).` that would stop the compilation. The first command has a few more flags:
 
-
-
-```
+``` sh
 cmake -B build -DGGML_CUDA=ON -DLLAMA_CURL=ON -DCMAKE_CUDA_STANDARD=14 -DCMAKE_CUDA_STANDARD_REQUIRED=true -DGGML_CPU_ARM_ARCH=armv8-a -DGGML_NATIVE=off
+```
+
+Finally the last step, that will take us 2 hours:
+
+``` sh
 cmake --build build --config Release
 ```
 
+After that you can start your conversation with
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+``` sh
+build/bin/llama-cli -hf ggml-org/gemma-3-1b-it-GGUF --n-gpu-layers 99
+```
 
 
 ## Benchmark
 
+We use the same Jetson Nano machine from 2019, no overclocking settings. The test prompt for `llama-cli`, `ollama` and the older `main` is "Explain quantum entanglement". Tests include the latest ollama 0.6.4 from April 2025 in CPU mode and several versions of llama.cpp compiled in pure CPU mode and with GPU support, using different amounts of layers offloaded to the GPU. The two LLM models considerd in the benchmarks are:
+
+- 2023-12-31 [TinyLlama-1.1B-Chat Q4 K M](https://huggingface.co/TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF?show_file_info=tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf) with 669 MB, 22 layers, 1.1 billion parameters and 2048 context length
+- 2025-03-12 [Gemma3:1b Q4 K M](https://huggingface.co/ggml-org/gemma-3-1b-it-GGUF?local-app=llama.cpp) with 806 MB, 27 layers, 1 billion parameters and 32768 context length
+
 ### TinyLlama-1.1B-Chat 2023-12-31
 
-In earlier works and referenced projects we often used the [TinyLlama-1.1B-Chat](https://huggingface.co/TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF?show_file_info=tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf) in Q4 quantization from 2023-12-31 with 669 MB in the model file. The test prompt is "The american civil war".
+Here is the prompt for b1618 and b2275, while b440 and b5050 use the second `ollama-cli` call, and we put the prompt in the cli after the startup.
 
 ```
-./build/bin/llama -hf 
+./main -hf TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF --n-gpu-layers 25 -p "Explain quantum entanglement"
+./build/bin/llama-cli -hf TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF --n-gpu-layers 25
 ```
 
 
@@ -232,9 +237,23 @@ Using just the CPU version with a newer llama.cpp b5017 from April 2025 we get a
 
 This much more recent [model from March 2025](https://huggingface.co/ggml-org/gemma-3-1b-it-GGUF?local-app=llama.cpp) is slightly larger with 806 MB but much more capable than TinyLlama, and comparable in speed. The prompt is "Explain quantum entanglement"
 
-```
-llama-cli -hf ggml-org/gemma-3-1b-it-GGUF
+``` sh
+llama-cli -hf ggml-org/gemma-3-1b-it-GGUF --n-gpu-layers 99
 llama-cli -hf unsloth/gemma-3-1b-it-GGUF:Q4_K_M
+./build/bin/llama-bench -m ../.cache/llama.cpp/ggml-org_gemma-3-1b-it-GGUF_gemma-3-1b-it-Q4_K_M.gguf --n-gpu-layers 0
+```
+
+Result:
+
+``` sh
+ggml_cuda_init: found 1 CUDA devices:
+  Device 0: NVIDIA Tegra X1, compute capability 5.3, VMM: no
+| model                   |       size |   params | backend | ngl |  test |           t/s |
+| ----------------------- | ---------: | -------: | ------- | --: | ----: | ------------: |
+| gemma3 1B Q4_K - Medium | 762.49 MiB | 999.89 M | CUDA    |  25 | pp512 | 115.05 ± 0.08 |
+| gemma3 1B Q4_K - Medium | 762.49 MiB | 999.89 M | CUDA    |  25 | tg128 |   5.03 ± 0.01 |
+
+build: 193c3e03 (5038)
 ```
 
 ## Compile llama.cpp for CPU mode
@@ -269,7 +288,7 @@ sudo apt install nano curl libcurl4-openssl-dev python3-pip
 pip3 install jetson-top
 ```
 
-### Install `cmake >=3.14`
+### Install `cmake >= 3.14`
 
 Purge any old `cmake` installation and install a newer `3.27`
 
@@ -355,154 +374,4 @@ sudo update-alternatives --install /usr/bin/g++ g++ /usr/local/bin/g++ 100
 - 2025-03-26 [LLAMA.CPP on NVIDIA Jetson Nano: A Complete Guide](https://medium.com/@anuragdogra2192/llama-cpp-on-nvidia-jetson-nano-a-complete-guide-fb178530bc35), Running LLAMA.cpp on Jetson Nano 4 GB with CUDA 10.2 by Anurag Dogra on medium.com. His modifications compile an older version of llama.cpp with `gcc 8.5` successfully. Because the codebase for llama.cpp is rather old, the performance with GPU support is significantly worse than current versions running purely on the CPU. This motivated to get a more recent llama.cpp version to be compiled. He uses the version [81bc921](https://github.com/ggml-org/llama.cpp/tree/81bc9214a389362010f7a57f4cbc30e5f83a2d28) from December 7, 2023 - [b1618](https://github.com/ggml-org/llama.cpp/tree/b1618) of llama.cpp.
 - 2025-01-13 Guide to compile a recent llama.cpp with CUDA support for the Nintendo Switch at [nocoffei.com](https://nocoffei.com/?p=352), titled "Switch AI ✨". The Nintendo Switch 1 has the same Tegra X1 CPU and Maxwell GPU as the Jetson Nano, but 256 CUDA cores instead of just 128, and a higher clock rate. This article was the main source for this gist.
 - 2024-04-11 [Setup Guide for `llama.cpp` on Nvidia Jetson Nano 2GB](https://gist.github.com/FlorSanders/2cf043f7161f52aa4b18fb3a1ab6022f) by Flor Sanders in a gist. He describes the steps to install the `gcc 8.5` compiler on the Jetson. In step 5 he checks out the version [a33e6a0](https://github.com/ggml-org/llama.cpp/commit/a33e6a0d2a66104ea9a906bdbf8a94d050189d91) from February 26, 2024 - [b2275](https://github.com/ggml-org/llama.cpp/tree/b2275)
-- 2024-05-04 [Add binary support for Nvidia Jetson Nano- JetPack 4 #4140](https://github.com/ollama/ollama/issues/4140) on issues for ollama. In his initial statement dtischler assumes llama.cpp would require gcc-11, but it actually compiles fine with gcc-8 in version 8.5 from May 14, 2021 as shown in this gist.
-
-
-
-
-
-
-
-
-
-
-
-
-
-## History - content until March 2025
-
-This is a full account of the steps I ran to get `llama.cpp` running on the Nvidia Jetson Nano 2GB. It accumulates multiple different fixes and tutorials, whose contributions are referenced at the bottom of this README.
-
-[Github Gist FlorSanders/JetsonNano2GB_LlamaCpp_SetupGuide.md](https://gist.github.com/FlorSanders/2cf043f7161f52aa4b18fb3a1ab6022f)
-
-__Remark 2025-01-21:__ This gist is from April 2024. The current version of llama.cpp should be able to compile on the Jetson Nano out of the box. Or you can directly run ollama on the Jetson nano, it just works. But the inference is only done on the CPU, the GPU is not utilized - and probably never will. See [ollama issue 4140](https://github.com/ollama/ollama/issues/4140) regarding JetPack 4, CUDA 10.2 and gcc-11.
-
-Read more in this gist: [kreier/JetsonNano2GB_LlamaCpp_SetupGuide.md](https://gist.github.com/kreier/c64815fd2fd3c15ca9d84ab2cfa58ff9)
-
-## Compile llama.cpp from source
-
-My Jetson Nano Developer Kit A02 from 2019 has 4GB RAM. The [latest software](https://developer.nvidia.com/embedded/downloads) support from Nvidia is Ubuntu 18.04 LTS, support ended in May 2023. On the Nvidia website its the [Jetson Nano Developer Kit SD Card Image](https://developer.nvidia.com/embedded/l4t/r32_release_v7.1/jp_4.6.1_b110_sd_card/jeston_nano/jetson-nano-jp461-sd-card-image.zip) 4.6.1 from 2022/02/23.  It includes the GNU Compiler Collection gcc and g++ 7.5.0 from 2019. You can [compile version 8.5 in about 3 hours](https://kreier.github.io/jetson/#2-llamacpp-as-an-alternative-probably-only-on-cpu-2024-04-11) from source, but you get several error messages when trying to compile llama.cpp. The first step `cmake -B build` works, but the second step `cmake --build build --config Release` exits after 6% with 
-
-```
-...
-cc1: some warnings being treated as errors
-ggml/src/CMakeFiles/ggml-cpu.dir/build.make:134: recipe for target 'ggml/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/ggml-cpu-quants.c.o' failed
-make[2]: *** [ggml/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/ggml-cpu-quants.c.o] Error 1
-CMakeFiles/Makefile2:2181: recipe for target 'ggml/src/CMakeFiles/ggml-cpu.dir/all' failed
-make[1]: *** [ggml/src/CMakeFiles/ggml-cpu.dir/all] Error 2
-Makefile:145: recipe for target 'all' failed
-make: *** [all] Error 2
-```
-
-You need at least gcc-9 and can install it with
-
-``` sh
-sudo add-apt-repository ppa:ubuntu-toolchain-r/test
-sudo apt update
-sudo apt install gcc-9 g++-9
-```
-
-You later have to add `-DCMAKE_C_COMPILER=/usr/bin/gcc-9 -DCMAKE_CXX_COMPILER=/usr/bin/g++-9` to cmake. The version of cmake provided with ubuntu 18.04 is rather old, only 3.10.2 and you need at least 3.14. Fortunately you can install version 3.31.6 with `sudo snap install cmake --classic`
-
-Now you can follow the [llama.cpp instructions to compile it for CPU](https://github.com/ggml-org/llama.cpp/blob/master/docs/build.md):
-
-```
-cmake -B build -DCMAKE_C_COMPILER=/usr/bin/gcc-9 -DCMAKE_CXX_COMPILER=/usr/bin/g++-9
-cmake --build build --config Release
-```
-
-Note that we included the gcc version for the build cmake. There are a few warnings, but it continues to build until 100%. Now you can test your build:
-
-## Running llama.cpp
-
-Let's have a look at a few small LLMs we coud run:
-
-- https://huggingface.co/TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF/blob/main/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf
-- https://huggingface.co/bartowski/DeepSeek-R1-Distill-Qwen-1.5B-GGUF
-
-We forgot to build it with support for huggingface, so we get an error
-
-```
-mk@jetson:~/Downloads/llama.cpp$ ./build/bin/llama-cli -hf TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF
-common_get_hf_file: llama.cpp built without libcurl, downloading from Hugging Face not supported.
-```
-
-### Download models
-
-We can download it with `wget https://huggingface.co/TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF/resolve/main/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf` and then run it with `./build/bin/llama-cli -m models/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf -p "Solar System" --n-gpu-layers 5 --ctx-size 512 --threads 4 --temp 0.7 --top-k 40 --top-p 0.9 --batch-size 16`.
-
-### Compile llama.cpp with huggingface support
-
-A common problem, as [noted in October 2024 on github](https://github.com/ggml-org/llama.cpp/discussions/9835). We have to 
-
-```
-$ sudo apt install libcurl4-openssl-dev
-```
-
-And then we can compile llama.cpp with the additional flag `-DLLAMA_CURL=ON`
-
-```
-cmake -B build -DCMAKE_C_COMPILER=/usr/bin/gcc-9 -DCMAKE_CXX_COMPILER=/usr/bin/g++-9 -DLLAMA_CURL=ON
-cmake --build build --config Release
-```
-
-It jumps right away to 20% and needs only 5 minutes to compile. Now we can directly write  
-
-```
-llama-cli -hf bartowski/DeepSeek-R1-Distill-Qwen-1.5B-GGUF:Q4_K_L
-```
-
-There is also an uncensored one:
-
-```
-llama-cli -hf mradermacher/DeepSeek-R1-Distill-Qwen-1.5B-uncensored-GGUF:Q4_K_M
-```
-
-## Benchmark
-
-The reference model is the small [TinyLlama-1.1B-Chat](https://huggingface.co/TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF/blob/main/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf). You install it with `llama-cli -hf TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF:Q4_K_M`.
-
-The way to run the benchmark is `./build/bin/llama-bench -m ../.cache/llama.cpp/TheBloke_TinyLlama-1.1B-Chat-v1.0-GGUF_tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf`
-
-### Jetson Nano - memory bandwidth 6 GB/s
-
-```
-| model                  |       size | params | backend | threads |  test |         t/s |
-| ---------------------- | ---------: | -----: | ------- | ------: | ----: | ----------: |
-| llama 1B Q4_K - Medium | 636.18 MiB | 1.10 B | CPU     |       4 | pp512 | 6.71 ± 0.00 |
-| llama 1B Q4_K - Medium | 636.18 MiB | 1.10 B | CPU     |       4 | tg128 | 4.98 ± 0.01 |
-
-build: c7b43ab6 (4970)
-```
-
-### Intel i7-13700T - memory bandwidth 54 GB/s
-
-For comparison I ran the same model and benchmark on an i7-13700T:
-
-```
-| model                  |       size | params | backend | threads |  test |           t/s |
-| ---------------------- | ---------: | -----: | ------- | ------: | ----: | ------------: |
-| llama 1B Q4_K - Medium | 636.18 MiB | 1.10 B | CPU     |      12 | pp512 | 156.84 ± 8.99 |
-| llama 1B Q4_K - Medium | 636.18 MiB | 1.10 B | CPU     |      12 | tg128 |  47.38 ± 0.88 |
-
-build: d5c6309d (4975)
-```
-
-### Nvidia RTX 3070 Ti - memory bandwidth [574 GB/s](https://kreier.github.io/benchmark/gpu/)
-
-```
-ggml_cuda_init: GGML_CUDA_FORCE_MMQ:    no
-ggml_cuda_init: GGML_CUDA_FORCE_CUBLAS: no
-ggml_cuda_init: found 1 CUDA devices:
-  Device 0: NVIDIA GeForce RTX 3070 Ti, compute capability 8.6, VMM: yes
-| model                  |       size | params | backend | ngl |   test |               t/s |
-| ---------------------- | ---------: | -----: | ------- | --: | -----: | ----------------: |
-| llama 1B Q4_K - Medium | 636.18 MiB | 1.10 B | CUDA    |  99 |  pp512 | 12830.34 ± 186.18 |
-| llama 1B Q4_K - Medium | 636.18 MiB | 1.10 B | CUDA    |  99 |  tg128 |    325.35 ± 11.50 |
-
-build: f125b8dc (4977)
-```
-
-## History
-
-In November 2023 a [bug report #4099 for llama.cpp](https://github.com/ggml-org/llama.cpp/issues/4099) was created for the Jetson Nano. It was closed in March 2024, followed by the [github gist from FlorSanders](https://gist.github.com/FlorSanders/2cf043f7161f52aa4b18fb3a1ab6022f) explaining the successful steps.
+- 2024-05-04 [Add binary support for Nvidia Jetson Nano- JetPack 4 #4140](https://github.com/ollama/ollama/issues/4140) on issues for ollama. In his initial statement dtischler assumes llama.cpp would require gcc-11, but it actually compiles fine with gcc-8 in version 8.5 from May 14, 2021 as shown in [this gist](https://gist.github.com/kreier/6871691130ec3ab907dd2815f9313c5d).
