@@ -256,6 +256,10 @@ ggml_cuda_init: found 1 CUDA devices:
 build: 193c3e03 (5038)
 ```
 
+<img src="1x1.png" width="20%"><img src="gemma3.png" width="60%">
+
+While a compiled CPU version of llama.cpp is comparable in speed with a recent ollama version, so might a GPU version be slower when not offloading layers to the GPU, but be **20% faster** if the model is offloaded to the GPU!
+
 ## Compile llama.cpp for CPU mode
 
 This can be done with `gcc 8.5` or `gcc 9.4` in 24 minutes and was tested with a version as recent as April 2025. You can follow the [instructions from llama.cpp](https://github.com/ggml-org/llama.cpp/blob/master/docs/build.md). We added the parameter `-DLLAMA_CURL=ON` to support an easy model download from huggingface with the `-hf` command:
