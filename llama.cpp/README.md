@@ -19,7 +19,11 @@ As of April 2025 the current version of llama.cpp can be compiled for the Jetson
 
 And the Jetson Nano indeed uses its GPU to generate tokens with 100% and 4 Watt, while the CPU is only used in the 10% range with 0.7 Watt. If it is faster than the pure CPU use with ollama or a CPU build - see the benchmark section!
 
+<><>
+<img src="1x1.png" width="21%"><img src="llama5038gpu.png" width="70%">
+<!--
 ![jtop usage](llama5038gpu.png)
+-->
 
 ## Prerequisites
 
@@ -256,7 +260,7 @@ ggml_cuda_init: found 1 CUDA devices:
 build: 193c3e03 (5038)
 ```
 
-<img src="1x1.png" width="20%"><img src="gemma3.png" width="60%">
+<img src="1x1.png" width="25%"><img src="gemma3.png" width="50%">
 
 While a compiled CPU version of llama.cpp is comparable in speed with a recent ollama version, so might a GPU version be slower when not offloading layers to the GPU, but be **20% faster** if the model is offloaded to the GPU!
 
