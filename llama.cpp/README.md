@@ -26,7 +26,7 @@ And the Jetson Nano indeed uses its GPU to generate tokens with 100% and 4 Watt,
 
 ## Prerequisites
 
-You will need the following software packages installed. The section "[Install prerequisites](https://gist.github.com/kreier/6871691130ec3ab907dd2815f9313c5d#install-prerequisites)" describes the process in detail. The installation of `gcc 8.5` and `cmake 3.31` of these might take several hours.
+You will need the following software packages installed. The section "[Install prerequisites](https://gist.github.com/kreier/6871691130ec3ab907dd2815f9313c5d#install-prerequisites)" describes the process in detail. The installation of `gcc 8.5` and `cmake 3.27` of these might take several hours.
 
 - Nvidia CUDA Compiler nvcc 10.2 - `nvcc --version`
 - GCC and CXX (g++) 8.5 - `gcc --version`
@@ -111,9 +111,9 @@ This avoids the compiler error *"__builtin_assume" is undefined* for these three
 - line 71, `nano ggml/src/ggml-cuda/fattn-vec-f32.cuh`
 - line 73, `nano ggml/src/ggml-cuda/template-instances/../fattn-vec-f16.cuh`
 
-If you have a version lower than 4400 you can skip the next step.
+If you have a version lower than b4400 you can skip the next step.
 
-In January 2025 with version larter than b4400 llama.cpp started including support for bfloat16. There is a standard library `cuda_bf16.h` in the folder `/usr/local/cuda-10.2/targets/aarch64-linux/include` for nvcc 11.0 and larger. With more than 5000 lines one can not simply copy a later version this file into this folder (with its companion `cuda_bf16.hpp` and 3800 lines) and hope it would work. Since it is linked to version 11 or 12, the error messages keep expanding (e.g. `/usr/local/cuda/include/cuda_bf16.h:4322:10: fatal error: nv/target: No such file or directory`). We have two working options
+In January 2025 with version larger than b4400 llama.cpp started including support for bfloat16. There is a standard library `cuda_bf16.h` in the folder `/usr/local/cuda-10.2/targets/aarch64-linux/include` for nvcc 11.0 and larger. With more than 5000 lines one can not simply copy a later version this file into this folder (with its companion `cuda_bf16.hpp` and 3800 lines) and hope it would work. Since it is linked to version 11 or 12, the error messages keep expanding (e.g. `/usr/local/cuda/include/cuda_bf16.h:4322:10: fatal error: nv/target: No such file or directory`). We have two working options:
 
 ### 6. Option A: Create a `cuda_bf16.h` that redefines `nv_bfloat16` as `half`
 
@@ -154,9 +154,6 @@ namespace cuda {
 
 #endif // CUDA_BF16_HPP
 ```
-
-Both files should be made executeable? Try `sudo chmod a+x /usr/local/cuda/include/cuda_bf16.h` and `sudo chmod a+x /usr/local/cuda/include/cuda_bf16.hpp`.
-
 
 ### 6. Option B: Comment all code related to *bfloat16* in 3 files
 
