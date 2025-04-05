@@ -2,8 +2,8 @@
 
 As of April 2025 the current version of llama.cpp can be compiled for the Jetson Nano from 2019 with GPU/CUDA support using `gcc 8.5` and `nvcc 10.2`. Here is a list of a few earlier solutions with description, sorted by their build date. Their performance is later compared in [benchmarks](https://github.com/kreier/jetson/tree/main/llama.cpp#benchmark):
 
-- 2025-04-04 [b5050](https://github.com/ggml-org/llama.cpp/releases/tag/b5050) Some extra steps had to be included to handle the new support of `bfloat16` in llama.cpp since January 2025. Procedure is described in [this gist](https://gist.github.com/kreier/6871691130ec3ab907dd2815f9313c5d).
-- 2024-12-31 [b4400](https://github.com/ggml-org/llama.cpp/releases/tag/b4400) Following the steps from the [gist].(https://gist.github.com/kreier/6871691130ec3ab907dd2815f9313c5d) above, step 6 can be ommited. Source: a [build for the Nintendo Switch](https://nocoffei.com/?p=352)!
+- 2025-04-05 [b5050](https://github.com/ggml-org/llama.cpp/releases/tag/b5050) Some extra steps had to be included to handle the new support of `bfloat16` in llama.cpp since January 2025. Procedure is described in [this gist](https://gist.github.com/kreier/6871691130ec3ab907dd2815f9313c5d).
+- 2024-12-31 [b4400](https://github.com/ggml-org/llama.cpp/releases/tag/b4400) Following the steps from the [gist](https://gist.github.com/kreier/6871691130ec3ab907dd2815f9313c5d) above, step 6 can be ommited. Source: a [build for the Nintendo Switch](https://nocoffei.com/?p=352)!
 - 2024-02-26 [b2275](https://github.com/ggml-org/llama.cpp/tree/b2275) A [gist by Flor Sanders](https://gist.github.com/FlorSanders/2cf043f7161f52aa4b18fb3a1ab6022f) from 2024-04-11 describes the procedure to combile a version with GPU acceleration.
 - 2023-12-07 [b1618](https://github.com/ggml-org/llama.cpp/tree/b1618) A [medium.com article from Anurag Dogra](https://medium.com/@anuragdogra2192/llama-cpp-on-nvidia-jetson-nano-a-complete-guide-fb178530bc35) from 2025-03-26 describes the modification needed to compile llama.cpp with `gcc 8.5` and CUDA support.
 
@@ -26,7 +26,7 @@ And the Jetson Nano indeed uses its GPU to generate tokens with 100% and 4 Watt,
 
 ## Prerequisites
 
-You will need the following software packages installed. The section "[Install prerequisites](https://gist.github.com/kreier/6871691130ec3ab907dd2815f9313c5d#install-prerequisites)" describes the process in detail. The installation of `gcc 8.5` and `cmake 3.31` of these might take several hours.
+You will need the following software packages installed. The section "[Install prerequisites](https://gist.github.com/kreier/6871691130ec3ab907dd2815f9313c5d#install-prerequisites)" describes the process in detail. The installation of `gcc 8.5` and `cmake 3.27` of these might take several hours.
 
 - Nvidia CUDA Compiler nvcc 10.2 - `nvcc --version`
 - GCC and CXX (g++) 8.5 - `gcc --version`
@@ -35,14 +35,14 @@ You will need the following software packages installed. The section "[Install p
 
 ## Procedure
 
-To ensure this gist keeps working in the future, while newer versions of llama.cpp are released, we will check out a specific version (b5050) known to be working. To try a more recent version remove the steps `git checkout 3f9da22` and `git checkout -b llamaJetsonNanoCUDA` in the following instructions:
+To ensure this gist keeps working in the future, while newer versions of llama.cpp are released, we will check out a specific version (b5050) known to be working. To try a more recent version remove the steps `git checkout 23106f9` and `git checkout -b llamaJetsonNanoCUDA` in the following instructions:
 
 ### 1. Clone repository
 
 ``` sh
 git clone https://github.com/ggml-org/llama.cpp llama5050gpu.cpp
 cd llama5050gpu.cpp
-git checkout 3f9da22
+git checkout 23106f9
 git checkout -b llamaJetsonNanoCUDA
 ```
 
@@ -96,7 +96,7 @@ With `target_link_libraries(ggml PRIVATE stdc++fs)` and `add_link_options(-Wl,--
 
 ### 4. Remove *cpmstexpr* from line 455 in `ggml/src/ggml-cuda/common.cuh`
 
-This feature from CUDA C++ 17 we don't support anyway, just remove the **constexpr** after the *static* in line 455.1 Use `nano ggml/src/ggml-cuda/common.cuh`. After that it looks like:
+Use `nano ggml/src/ggml-cuda/common.cuh` to remove the **constexpr** after the *static* in line 455. This feature from CUDA C++ 17 we don't support anyway. After that it looks like:
 
 ``` h
 // TODO: move to ggml-common.h
@@ -111,9 +111,9 @@ This avoids the compiler error *"__builtin_assume" is undefined* for these three
 - line 71, `nano ggml/src/ggml-cuda/fattn-vec-f32.cuh`
 - line 73, `nano ggml/src/ggml-cuda/template-instances/../fattn-vec-f16.cuh`
 
-If you have a version lower than 4400 you can skip the next step.
+If you have a version lower than b4400 you can skip the next step.
 
-In January 2025 with version larter than b4400 llama.cpp started including support for bfloat16. There is a standard library `cuda_bf16.h` in the folder `/usr/local/cuda-10.2/targets/aarch64-linux/include` for nvcc 11.0 and larger. With more than 5000 lines one can not simply copy a later version this file into this folder (with its companion `cuda_bf16.hpp` and 3800 lines) and hope it would work. Since it is linked to version 11 or 12, the error messages keep expanding (e.g. `/usr/local/cuda/include/cuda_bf16.h:4322:10: fatal error: nv/target: No such file or directory`). We have two working options
+In January 2025 with version larger than b4400 llama.cpp started including support for bfloat16. There is a standard library `cuda_bf16.h` in the folder `/usr/local/cuda-10.2/targets/aarch64-linux/include` for nvcc 11.0 and larger. With more than 5000 lines one can not simply copy a later version this file into this folder (with its companion `cuda_bf16.hpp` and 3800 lines) and hope it would work. Since it is linked to version 11 or 12, the error messages keep expanding (e.g. `/usr/local/cuda/include/cuda_bf16.h:4322:10: fatal error: nv/target: No such file or directory`). We have two working options:
 
 ### 6. Option A: Create a `cuda_bf16.h` that redefines `nv_bfloat16` as `half`
 
@@ -155,9 +155,6 @@ namespace cuda {
 #endif // CUDA_BF16_HPP
 ```
 
-Both files should be made executeable? Try `sudo chmod a+x /usr/local/cuda/include/cuda_bf16.h` and `sudo chmod a+x /usr/local/cuda/include/cuda_bf16.hpp`.
-
-
 ### 6. Option B: Comment all code related to *bfloat16* in 3 files
 
 The second solution is to remove all references to the *bfloat16* data type in the 3 files referencing them. First we have to __NOT__ include the nonexisting `cuda_bf16.h`. Just add two // in front of line 6 with `nano ggml/src/ggml-cuda/vendors/cuda.h`. After that it looks like this:
@@ -195,7 +192,11 @@ And 15 seconds later we're ready for the last step, the instruction that will ta
 cmake --build build --config Release
 ```
 
-Successful compiled! After that you can start your conversation with Gemma3 about finer details of our universe:
+Successfully compiled! 
+
+![output compiling](compile5050.png)
+
+After that you can start your conversation with Gemma3 about finer details of our universe:
 
 ``` sh
 ./build/bin/llama-cli -hf ggml-org/gemma-3-1b-it-GGUF -p "Explain quantum entanglement" --n-gpu-layers 99
@@ -300,10 +301,36 @@ After finishing the compilation its time for the first model and AI chat:
 
 ## Install prerequisites
 
+The [latest image from Nvidia](https://developer.nvidia.com/embedded/learn/get-started-jetson-nano-devkit#write) for the 2019 Jetson Nano contains a ubuntu 18.04 LTS distribution with a kernel *Kernel GNU/Linux 4.9.201-tegra*, the *GNU Compiler Collection 7.5.0 (G++ 7.5.0) from 2019*, the *NVIDIA Cuda Compiler nvcc 10.3.200* and has *Jetpack 4.6.1-b110* (check with `sudo apt-cache show nvidia-jetpack`) installed. If `nvcc --version` does not confirm the installed Cuda Compiler you need to update the links with
+
+``` sh
+export PATH=/usr/local/cuda/bin${PATH:+:${PATH}}
+export LD_LIBRARY_PATH=/usr/local/cuda/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
+```
+
+As best practice you can add these to the end of your *.bashrc* with `nano .bashrc`.
+
+### Update the system - could be skipped?
+
+Usually I updated the system and the installed packages to the latest available versions, and currently that's about 248 packages. This will take several hours. I'll test in the future if that is actually necessary to compile llama.cpp. And stop the time. 
+
+``` sh
+sudo apt update
+sudo apt upgrade
+```
+
+At two occations you are asked to decide if you want to update a specific settings file. And a third interruption is about starting the docker daemon. All three are towards the end of the update cycle. One of the things updated (perform a reboot) is the jetpack and kernel:
 
 - JetPack 4.6.6 (L4T 32.7.6-20241104234540) - `dpkg-query --show nvidia-l4t-core`
+- kernel Linux nano 4.9.337-tegra from November 4, 2024 - `uname -a`
 
-Most of the prerequisites can be installed rather fast. But compiling gcc 8.5.0 will take 3 hours on the Jetson Nano. And the installation of cmake 3.31.5 will also take 45 minutes.
+Now there are 3 further things to install or update:
+
+- A few additional packages like `jtop` to check system activity - 3 minutes
+- cmake >= 3.14 - 45 minutes??
+- gcc 8.5.0 - 3 hours
+
+### Install additional helpful packages
 
 ``` sh
 sudo apt update
