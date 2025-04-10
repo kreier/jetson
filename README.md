@@ -11,6 +11,7 @@ I got the [Developer Kit A02](https://developer.nvidia.com/embedded/learn/get-st
 - [Ubuntu Distribution limited to 18.04](#ubuntu-distribution-limited-to-1804)
 - [Hardware limitations](#hardware-limitations)
   - [Memory bandwidth](#memory-bandwidth)
+  - [First start](#first-start) - 50 minutes
 - [Running Ollama on the Jetson - CPU only?](#running-ollama-on-the-jetson---cpu-only)
   - [Use of GPU not possible - 2024-07-25](#use-of-gpu-not-possible---2024-07-25)
 - [llama.cpp as an alternative?](#llamacpp-as-an-alternative)
@@ -35,6 +36,7 @@ While some updated images with 20.04 exist, officially Nvidia only supports [18.
 - Python 3.6.9
 - No [OpenCL](https://en.wikipedia.org/wiki/OpenCL) (try fix with PoCL)
 
+
 ## Hardware limitations
 
 The hardware was released 2019, based on the [Maxwell architecture](https://en.wikipedia.org/wiki/Maxwell_(microarchitecture)) of Nvidia from 2014. That's 11 years by 2025.
@@ -54,6 +56,39 @@ sysbench 1.0.11 (using system LuaJIT 2.1.0-beta3)
 ```
 
 It looks like only 6.8 GB/s are usable with LPDDR4, not 25.60. This will limit the speed in token generation (TG) later.
+
+
+## First start
+
+To get the system started with some usefull software features you need ca. 50 minutes:
+
+- 43 minutes - Writing the 13 GB to the SD Card with Rufus takes some time
+- 2 minutes - First boot, then a few clicks, timezone, username and other settings
+- 3 minutes - A new login screen is there, you enter your password and click a few welcome messages for a minute
+  - The system is now running after 48 minutes, and the OpenSSH server has already started, you can ssh into your machine
+- 4 minutes - The following changes include an update (not upgrade) and a reboot
+
+A few things you might want to do. Disable the graphical login. Update your apt repository (348 packages, 38 seconds). Install `jtop`. This will take another 2 minutes and a reboot.
+
+``` sh
+sudo systemctl set-default multi-user.target
+sudo apt update
+sudo apt install nano curl libcurl4-openssl-dev python3-pip
+sudo pip3 install -U jetson-stats
+```
+
+After this the system uses `df` some **12,600,760 Bytes** of the SD card. With `sudo apt autoremove` and 1:38 min later it is 12496444 bytes. The compiler `/usr/local/cuda/bin/nvcc --version` returns:
+
+```
+nvcc: NVIDIA (R) Cuda compiler driver
+Copyright (c) 2005-2021 NVIDIA Corporation
+Built on Sun_Feb_28_22:34:44_PST_2021
+Cuda compilation tools, release 10.2, V10.2.300
+Build cuda_10.2_r440.TC440_70.29663091_0
+```
+
+The kernel is `uname -a`: Linux nano 4.9.253-tegra #1 SMP PREEMPT Sat Feb 19 08:59:22 PST 2022.
+
 
 ## Running Ollama on the Jetson - CPU only?
 
