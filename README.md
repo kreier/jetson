@@ -1,21 +1,27 @@
 # Jetson Nano Developer Kit A02 4GB
 
+![GitHub Release](https://img.shields.io/github/v/release/kreier/jetson)
+![GitHub License](https://img.shields.io/github/license/kreier/jetson)
+
+
 I got the [Developer Kit A02](https://developer.nvidia.com/embedded/learn/get-started-jetson-nano-devkit) (only one CSI camera interface, the B01 has two) of the [Jetson Nano](https://developer.nvidia.com/embedded/jetson-nano) in early 2020. In 2021 I added the case, proper power supply and Wifi Card. Early 2024 I started to use it again, but run into limitations very early. Here is part of the documentation.
 
 ## Structure
 
-- Ubuntu Distribution limited to 18.04
-- Hardware limitations
-  - Memory bandwidth
-- Running Ollama on the Jetson - CPU only?
-  - Use of GPU not possible - 2024-07-25
-- llama.cpp as an alternative?
-  - Probably CPU only 2024-04-11
-  - GPU accelerated b1618 2023-11-03
-  - GPU accelerated b2268 2024-04-11
-  - GPU accelerated b5050 2025-04-05
-- OpenCL with POCL - Portable CL on the Jetson?
-- Install LLVM
+- [Ubuntu Distribution limited to 18.04](#ubuntu-distribution-limited-to-1804)
+- [Hardware limitations](#hardware-limitations)
+  - [Memory bandwidth](#memory-bandwidth)
+- [Running Ollama on the Jetson - CPU only?](#running-ollama-on-the-jetson---cpu-only)
+  - [Use of GPU not possible - 2024-07-25](#use-of-gpu-not-possible---2024-07-25)
+- [llama.cpp as an alternative?](#llamacpp-as-an-alternative)
+  - [Probably CPU only 2024-04-11](#probably-cpu-only-2024-04-11)
+  - [GPU accelerated b1618 2023-11-03](#gpu-accelerated-b1618-2023-11-03)
+  - [GPU accelerated b2268 2024-04-11](#gpu-accelerated-b2268-2024-04-11)
+  - [GPU accelerated b5050 2025-04-05](#gpu-accelerated-b5050-2025-04-05)
+- [OpenCL with POCL - Portable CL on the Jetson?](#opencl-with-pocl---portable-cl-on-the-jetson)
+- [Compile and install PoCL](#compile-and-install-pocl)
+- [Install LLVM](#install-llvm)
+- [Some tips](#some-tips)
 
 
 ## Ubuntu Distribution limited to 18.04
@@ -196,3 +202,7 @@ sudo tar -xvvf clang+llvm-11.1.0-aarch64-linux-gnu.tar.xz
 sudo mv clang+llvm-11.1.0-aarch64-linux-gnu llvm-11.1.0
 sudo rm clang+llvm-11.1.0-aarch64-linux-gnu.tar.xz
 ```
+
+## Some tips
+
+Deactivate the GUI with `sudo systemctl set-default multi-user.target`. To apply, do a reboot with `sudo reboot`. Reactivate with `sudo systemctl set-default graphical.target` and `sudo reboot`.
