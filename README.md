@@ -9,7 +9,7 @@ I got the [Developer Kit A02](https://developer.nvidia.com/embedded/learn/get-st
 ## Structure
 
 - [Ubuntu Distribution limited to 18.04](#ubuntu-distribution-limited-to-1804)
-- [First start](#first-start) - 54 minutes
+- [First start](#first-start) - 8 minutes
 - [Hardware limitations](#hardware-limitations)
   - [Memory bandwidth](#memory-bandwidth)
 - [Running Ollama on the Jetson - CPU only?](#running-ollama-on-the-jetson---cpu-only)
@@ -39,24 +39,24 @@ While some updated images with 20.04 exist, officially Nvidia only supports [18.
 
 ## First start
 
-To get the system started with some usefull software features you need ca. 50 minutes:
+The first system start (after having written the latest image from Nvidia to the SD card - 43 to 52 minutes) with some setup, useful software features and ssh login needs **less than 8 minutes**:
 
-- 43 minutes - Writing the 13 GB to the SD Card with Rufus takes some time
-- 2 minutes - First boot, then a few clicks, timezone, username and other settings
-- 3 minutes - A new login screen is there, you enter your password and click a few welcome messages for a minute
+- 2 minutes - First boot, a few clicks, setting timezone, username and other settings
+- 2 minutes - A new login screen, enter your password and click a few welcome messages
   - The system is now running after 48 minutes, and the OpenSSH server has already started, you can ssh into your machine
-- 4 minutes - The following changes include an update (not upgrade) and a reboot
+- 4 minutes - A few changes, `apt update` (not upgrade), few packages and a reboot
 
-A few things you might want to do. Disable the graphical login. Update your apt repository (348 packages, 38 seconds). Install `jtop`. This will take another 2 minutes and a reboot.
+A few things you might want to do. Disable the graphical login. Update your apt repository (348 packages, 38 seconds). Install `jtop`. This will take another 3 minutes, followed by a reboot.
 
 ``` sh
 sudo systemctl set-default multi-user.target
 sudo apt update
 sudo apt install nano curl libcurl4-openssl-dev python3-pip
 sudo -H pip3 install -U jetson-stats
+sudo reboot
 ```
 
-After this the system uses `df` some **12,600,760 Bytes** of the SD card. `jtop` reports `Jetpack 4.6.1 [L4T 32.7.1]`. With `sudo apt autoremove` and 1:38 min later it is 12496444 bytes. The compiler `/usr/local/cuda/bin/nvcc --version` returns:
+After this the system uses `df` some **12,615,632 Bytes** of the SD card. `jtop` reports `Jetpack 4.6.1 [L4T 32.7.1]`. A run of `sudo apt autoremove` will take 45 seconds and save 114 MBytes. The compiler `/usr/local/cuda/bin/nvcc --version` returns:
 
 ```
 nvcc: NVIDIA (R) Cuda compiler driver
@@ -66,8 +66,16 @@ Cuda compilation tools, release 10.2, V10.2.300
 Build cuda_10.2_r440.TC440_70.29663091_0
 ```
 
-The kernel is `uname -a`: Linux nano 4.9.253-tegra #1 SMP PREEMPT Sat Feb 19 08:59:22 PST 2022. Without the GUI its 383M/3.9G Mem used.
+The kernel is `uname -a`: Linux nano 4.9.253-tegra #1 SMP PREEMPT Sat Feb 19 08:59:22 PST 2022. Without the GUI its 383M/3.87G Mem used. Compiler `gcc --version` is:
 
+```
+gcc (Ubuntu/Linaro 7.5.0-3ubuntu1~18.04) 7.5.0
+Copyright (C) 2017 Free Software Foundation, Inc.
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+```
+
+![Jetson nano with 7" screen](https://kreier.github.io/jetson-car/pic/2024_jetson_nano.jpg)
 
 ## Hardware limitations
 
@@ -176,6 +184,17 @@ $ export LD_LIBRARY_PATH=/usr/local/cuda/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_P
 ```
 
 The recommended version of llama.cpp to check out is [a33e6a0](https://github.com/ggerganov/llama.cpp/commit/a33e6a0d2a66104ea9a906bdbf8a94d050189d91) from February 26, 2024. The current version of the Makefile has entries for the Jetson [in line 476](https://github.com/ggerganov/llama.cpp/blob/2e2f8f093cd4fb6bbb87ba84f6b9684fa082f3fa/Makefile#L476). It could well be that this only refers to run on the CPU (as with the mentioned Raspberry Pi's) and not using the GPU with CUDA. This aligns with the [error message by VViliams123](https://gist.github.com/FlorSanders/2cf043f7161f52aa4b18fb3a1ab6022f?permalink_comment_id=5219170#gistcomment-5219170) on October 4, 2024.
+
+### GPU accelerated b5050 2025-04-05
+
+Install a CUDA version of `llama.cpp`, `llama-server` and `llama-bench` on the Jetson Nano in one minute, compiled with `gcc 8.5`. Just type:
+
+```
+curl -fsSL https://kreier.github.io/llama.cpp-jetson.nano/install.sh | sh
+```
+
+If the path is not automatically adjusted, run `export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH` or add this line permanently with `nano ~/.bashrc` to the end.
+
 
 ## OpenCL with POCL - Portable CL on the Jetson?
 
