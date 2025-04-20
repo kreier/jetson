@@ -26,8 +26,5 @@ add_line_if_missing() {
 add_line_if_missing "$LINE1" "$BASHRC"
 add_line_if_missing "$LINE2" "$BASHRC"
 
-# Apply the changes to the current shell session
-source ~/.bashrc
-
-# Inform the user
-echo "Changes applied! Both the ~/.bashrc file and the current shell session have been updated."
+# Inform the user to reload the shell
+echo "Done! Please run 'source $BASHRC' to apply the changes."
