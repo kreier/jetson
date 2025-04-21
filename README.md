@@ -27,7 +27,7 @@ I got the [Developer Kit A02](https://developer.nvidia.com/embedded/learn/get-st
 
 ## Ubuntu Distribution limited to 18.04
 
-<img src="https://kreier.github.io/jetson/docs/ubuntu1804.jpg" align="right" width="20%">
+<img src="https://kreier.github.io/jetson/docs/ubuntu1804.jpg" align="right" width="25%">
 
 While some updated images with 20.04 exist, officially Nvidia only supports [18.04 LTS](https://en.wikipedia.org/wiki/Ubuntu_version_history#1804) from the [official website](https://developer.nvidia.com/embedded/learn/get-started-jetson-nano-devkit#write). This version is 7 years old in 2025 and ended support in May 2023. This adds severe software limitations to the already existing hardware limitations:
 
@@ -50,8 +50,6 @@ The first system start (after having written the latest image from Nvidia to the
 
 A few things you might want to do. Disable the graphical login. Update your apt repository (348 packages, 38 seconds). Install `jtop`. This will take another 3 minutes, followed by a reboot.
 
-<img src="https://kreier.github.io/jetson/docs/jtop.png" align="right" width="20%">
-
 ``` sh
 sudo systemctl set-default multi-user.target
 sudo apt update
@@ -59,6 +57,8 @@ sudo apt install nano curl libcurl4-openssl-dev python3-pip
 sudo -H pip3 install -U jetson-stats
 sudo reboot
 ```
+
+<img src="https://kreier.github.io/jetson/docs/jtop.png" align="right" width="30%">
 
 After this the system uses `df` some **12,615,632 Bytes** of the SD card. `jtop` reports `Jetpack 4.6.1 [L4T 32.7.1]`. A run of `sudo apt autoremove` will take 45 seconds and save 114 MBytes. The compiler `/usr/local/cuda/bin/nvcc --version` returns:
 
@@ -226,12 +226,14 @@ cd pocl_3.0
 mkdir build
 cd build
 cmake -DCMAKE_INSTALL_PREFIX=/opt/pocl-3.0 -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS="-funroll-loops -march=native" -DCMAKE_C_FLAGS="-funroll-loops -march=native" -DWITH_LLVM_CONFIG=/opt/llvm-11.1.0/bin/llvm-config -DSTATIC_LLVM=ON -DENABLE_CUDA=ON ..
-make -j6
+make -j4
 sudo make install
 sudo mkdir -p /etc/OpenCL/vendors/
 sudo touch /etc/OpenCL/vendors/pocl.icd
 echo "/opt/pocl-3.0/lib/libpocl.so" | sudo tee --append /etc/OpenCL/vendors/pocl.icd
 ```
+
+<img src="https://kreier.github.io/jetson/docs/opencl_logo.png" align="right" width="12%">
 
 Now OpenCL should be successfully installed on the system. You can check if it works with the following command:
 
@@ -241,21 +243,100 @@ mk@jetson:~$ clinfo
 
 My result:
 
+```
+Number of platforms                       1
+  Platform Name                           Portable Computing Language
+  Platform Vendor                         The pocl project
+  Platform Version                        OpenCL 3.0 PoCL 3.0-rc2  Linux, RELOC, LLVM 11.1.0, SLEEF, FP16, CUDA, POCL_DEBUG
+  Platform Profile                        FULL_PROFILE
+  Platform Extensions                     cl_khr_icd cl_pocl_content_size
+  Platform Host timer resolution          0ns
+  Platform Extensions function suffix     POCL
+
+  Platform Name                           Portable Computing Language
+Number of devices                         2
+  Device Name                             pthread-cortex-a57
+  Device Vendor                           ARM
+  Device Vendor ID                        0x13b5
+  Device Version                          OpenCL 1.2 PoCL HSTR: pthread-aarch64-unknown-linux-gnu-cortex-a57
+  Driver Version                          3.0-rc2
+  Device OpenCL C Version                 OpenCL C 1.2 PoCL
+  Device Type                             CPU
+
+  Device Name                             NVIDIA Tegra X1
+  Device Vendor                           NVIDIA Corporation
+  Device Vendor ID                        0x10de
+  Device Version                          OpenCL 1.2 PoCL HSTR: CUDA-sm_53
+  Driver Version                          3.0-rc2
+  Device OpenCL C Version                 OpenCL C 1.2 PoCL
+  Device Type                             GPU
+  Device Topology (NV)                    PCI-E, 00:00.0
+  Device Profile                          FULL_PROFILE
+  Device Available                        Yes
+  Compiler Available                      Yes
+  Linker Available                        Yes
+  Max compute units                       1
+  Max clock frequency                     921MHz
+  Compute Capability (NV)                 5.3
+```
+
 #### Run `clpeak` Benchmark
 
 ```
-cd ~/
-mkdir workspace
-cd workspace
+cd ~/ && mkdir workspace && cd workspace
 git clone https://github.com/krrishnarraj/clpeak.git
 cd clpeak
 git submodule update --init --recursive --remote
-mkdir build
-cd build
+mkdir build && cd build
 cmake ..
-make -j6
+make -j4
 ./clpeak
 ```
+
+Result:
+
+```
+Platform: Portable Computing Language
+  Device: pthread-cortex-a57
+    Driver version  : 3.0-rc2 (Linux ARM64)
+    Compute units   : 4
+    Clock frequency : 1479 MHz
+
+    Single-precision compute (GFLOPS)
+      float   : 1.04
+      float2  : 2.09
+      float4  : 4.14
+      float8  : 8.20
+      float16 : 15.94
+
+    Integer compute (GIOPS)
+      int   : 3.80
+      int2  : 3.28
+      int4  : 5.69
+      int8  : 11.14
+      int16 : 21.34
+
+  Device: NVIDIA Tegra X1
+    Driver version  : 3.0-rc2 (Linux ARM64)
+    Compute units   : 1
+    Clock frequency : 921 MHz
+
+    Single-precision compute (GFLOPS)
+      float   : 220.29
+      float2  : 228.37
+      float4  : 229.89
+      float8  : 228.30
+      float16 : 228.25
+
+    Integer compute (GIOPS)
+      int   : 62.01
+      int2  : 77.55
+      int4  : 77.35
+      int8  : 57.64
+      int16 : 63.62
+```
+
+The GPU is slightly faster, but provides only **228 GFLOPS** and **0.06 TOPS** with 25 GB/s theoretical memory bandwidth. In theory it should achieve 472 GFLOPS in FP16. For comparison: the [Jetson Nano Orin Super](https://www.nvidia.com/en-us/autonomous-machines/embedded-systems/jetson-orin/nano-super-developer-kit/) has [2560 GFLOPS](https://www.techpowerup.com/gpu-specs/jetson-orin-nano-8-gb.c4082) and 67 TOPS with 102 GB/s theoretical memory bandwidth.
 
 ## Some tips
 
