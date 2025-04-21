@@ -293,7 +293,9 @@ make -j4
 ./clpeak
 ```
 
-Result:
+<img src="https://kreier.github.io/jetson/docs/memory_bandwidth.svg" align="right" width="40%">
+
+Result (also here in a [Google Sheet](https://docs.google.com/spreadsheets/d/14fJGbcIS7na7uuQzY_1g86mMyZHrhrN-U7P0sVHSopg/edit?usp=sharing)):
 
 ```
 Platform: Portable Computing Language
