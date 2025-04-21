@@ -20,12 +20,14 @@ I got the [Developer Kit A02](https://developer.nvidia.com/embedded/learn/get-st
   - [GPU accelerated b2268 2024-04-11](#gpu-accelerated-b2268-2024-04-11)
   - [GPU accelerated b5050 2025-04-05](#gpu-accelerated-b5050-2025-04-05)
 - [OpenCL with POCL - Portable CL on the Jetson?](#opencl-with-pocl---portable-cl-on-the-jetson)
-- [Compile and install PoCL](#compile-and-install-pocl)
-- [Install LLVM](#install-llvm)
+  - [Install LLVM](#install-llvm)
+  - [Compile and install PoCL](#compile-and-install-pocl)
 - [Some tips](#some-tips)
 
 
 ## Ubuntu Distribution limited to 18.04
+
+<img src="https://kreier.github.io/jetson/docs/ubuntu1804.jpg" align="right" width="20%">
 
 While some updated images with 20.04 exist, officially Nvidia only supports [18.04 LTS](https://en.wikipedia.org/wiki/Ubuntu_version_history#1804) from the [official website](https://developer.nvidia.com/embedded/learn/get-started-jetson-nano-devkit#write). This version is 7 years old in 2025 and ended support in May 2023. This adds severe software limitations to the already existing hardware limitations:
 
@@ -47,6 +49,8 @@ The first system start (after having written the latest image from Nvidia to the
 - 4 minutes - A few changes, `apt update` (not upgrade), few packages and a reboot
 
 A few things you might want to do. Disable the graphical login. Update your apt repository (348 packages, 38 seconds). Install `jtop`. This will take another 3 minutes, followed by a reboot.
+
+<img src="https://kreier.github.io/jetson/docs/jtop.png" align="right" width="20%">
 
 ``` sh
 sudo systemctl set-default multi-user.target
@@ -103,6 +107,8 @@ It looks like only 6.8 GB/s are usable with LPDDR4, not 25.60. This will limit t
 
 ## Running Ollama on the Jetson - CPU only?
 
+<img src="https://kreier.github.io/jetson/docs/ollama_logo.png" align="right" width="15%">
+
 See [Nvidia Jetson AI Lab](https://www.jetson-ai-lab.com/index.html), it generally starts with the Jetson Orin Nano. The orignal Jetson is only there for comparison. For example the [Ollama tutorial](https://www.jetson-ai-lab.com/tutorial_ollama.html) not even mention the 4GB Orin model, and lists [JetPack 5](https://developer.nvidia.com/embedded/jetpack-sdk-514) (L4T r35.x) and [JetPack 6](https://developer.nvidia.com/embedded/jetpack-sdk-62) (L4T r36.x) as requirements. The [latest JetPack](https://developer.nvidia.com/embedded/jetpack) for the original Jetson Nano is [JetPack 4.6.6](https://developer.nvidia.com/jetpack-sdk-466) - see [the archive](https://developer.nvidia.com/embedded/jetpack-archive).
 
 You can install [ollama](https://ollama.com/) on this machine. The simple instruction is `curl -fsSL https://ollama.com/install.sh | sh`. And it does run llama3.2:1b with __3.77 token/s__ at 100% CPU. Gemma3 is faster with more than __5 t/s__. Is it possible to get GPU acceleration? The hardware should be able to, since Cuda CC >= 5.0 is required, and the Jetson has CC 5.3.
@@ -130,45 +136,29 @@ Technically the Maxwell GPU with Cuda CC 5.3 should be supported by Cuda 12. But
 
 ## llama.cpp as an alternative?
 
+<img src="https://kreier.github.io/jetson/docs/llama_logo.png" align="right" width="30%">
+
 ### Probably CPU only 2024-04-11
 
 You can compile and run llama.cpp on the Jetson Nano with a decent speed with the following commands:
 
 ```
-sudo apt install libcurl4-openssl-dev
-wget https://github.com/Kitware/CMake/releases/download/v4.0.0/cmake-4.0.0-linux-aarch64.sh
-chmod a+x cmake-4.0.0-linux-aarch64.sh
-./cmake-4.0.0-linux-aarch64.sh
-cd llama.cpp
-../cmake-4.0.0-linux-aarch64/bin/cmake -B build
-
-
-
-
-cd cmake-3.14.0
-sudo ./bootstrap //20 mimutes
-sudo make
-sudo make install
-cmake --version //return the version of cmake
-
 git clone https://github.com/ggml-org/llama.cpp 
 cd llama.cpp
-cmake
-sudo cmake -B build -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ -DLLAMA_CURL=ON
+cmake -B build -DLLAMA_CURL=ON
 sudo cmake --build build --config Release
-cmake 
-
-
-
-git checkout 81bc921
-git checkout -b llamaForJetsonNano
 ```
+
+More in these repositories: 
+
+- [https://github.com/kreier/llama.cpp-jetson](https://github.com/kreier/llama.cpp-jetson) Compile a new llama.cpp for CPU and also with CUDA for GPU acceleration
+- [https://github.com/kreier/llama.cpp-jetson.nano](https://github.com/kreier/llama.cpp-jetson.nano) Install precompiled binaries in minutes and start testing
 
 ![speed comparison](https://raw.githubusercontent.com/kreier/llama.cpp-jetson/main/docs/TinyLlama.png)
 
 ### GPU accelerated b1618 2023-11-03
 
-To be explained
+Look [here](https://github.com/kreier/llama.cpp-jetson/tree/main/patch/b1618) and on medium.
 
 ### GPU accelerated b2268 2024-04-11
 
@@ -196,13 +186,34 @@ curl -fsSL https://kreier.github.io/llama.cpp-jetson.nano/install.sh | sh
 If the path is not automatically adjusted, run `export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH` or add this line permanently with `nano ~/.bashrc` to the end.
 
 
-## OpenCL with POCL - Portable CL on the Jetson?
+
+<img src="https://kreier.github.io/jetson/docs/opencl_logo.png" align="right" width="20%">
+
+## OpenCL with PoCL - Portable CL on the Jetson?
 
 An [article on Medium](https://yunusmuhammad007.medium.com/build-and-install-opencl-on-jetson-nano-10bf4a7f0e65) from September 2021 describes the installation of [PoCL](https://github.com/pocl/pocl) 1.7 on the Jetson Nano. By 2024 version 6.0 is the latest one, but it's not supported by PoCL. The reason [is described here](https://largo.lip6.fr/monolithe/admin_pocl/), and related to the old Ubuntu 18.04. That's why the latest version that can be installed is PoCL 3.0. This has been done successfully in October 2022.
 
 On "old" Jetson boards (TX2, Xavier NX, AGX Xavier & Nano), it is not possible to install recent PoCL version 5 because the OS is too old (Ubuntu 18.04) and it is complicated to install a recent version of the required Clang compiler (version 17). This is why on these specific boards we will install PoCL version 3. One of the main drawback is that there is no GPU 16-bit float support in this version 😔.
 
+<img src="https://kreier.github.io/jetson/docs/LLVM_logo.png" align="right" width="15%">
 
+Before we compile and install PoCL we need LLVM 11.1.0, the target-independent optimizer and code generator initially named *Low Level Virtual Machine* in 2003.
+
+
+
+### Install LLVM
+
+Install the LLVM for ARM64 and Jetson Nano on Ubuntu 18.04 ([source](https://largo.lip6.fr/monolithe/admin_pocl/)):
+
+``` bash
+export LLVM_VERSION=10
+sudo apt install -y build-essential ocl-icd-libopencl1 cmake git pkg-config libclang-${LLVM_VERSION}-dev clang-${LLVM_VERSION} llvm-${LLVM_VERSION} make ninja-build ocl-icd-libopencl1 ocl-icd-dev ocl-icd-opencl-dev libhwloc-dev zlib1g zlib1g-dev clinfo dialog apt-utils libxml2-dev libclang-cpp${LLVM_VERSION}-dev libclang-cpp${LLVM_VERSION} llvm-${LLVM_VERSION}-dev libncurses5
+cd /opt
+sudo wget https://github.com/llvm/llvm-project/releases/download/llvmorg-11.1.0/clang+llvm-11.1.0-aarch64-linux-gnu.tar.xz
+sudo tar -xvvf clang+llvm-11.1.0-aarch64-linux-gnu.tar.xz
+sudo mv clang+llvm-11.1.0-aarch64-linux-gnu llvm-11.1.0
+sudo rm clang+llvm-11.1.0-aarch64-linux-gnu.tar.xz
+```
 
 ### Compile and Install PoCL
 
@@ -244,20 +255,6 @@ cd build
 cmake ..
 make -j6
 ./clpeak
-```
-
-### Install LLVM
-
-Install the LLVM for ARM64 and Jetson Nano on Ubuntu 18.04 ([source](https://largo.lip6.fr/monolithe/admin_pocl/)):
-
-``` bash
-export LLVM_VERSION=10
-sudo apt install -y build-essential ocl-icd-libopencl1 cmake git pkg-config libclang-${LLVM_VERSION}-dev clang-${LLVM_VERSION} llvm-${LLVM_VERSION} make ninja-build ocl-icd-libopencl1 ocl-icd-dev ocl-icd-opencl-dev libhwloc-dev zlib1g zlib1g-dev clinfo dialog apt-utils libxml2-dev libclang-cpp${LLVM_VERSION}-dev libclang-cpp${LLVM_VERSION} llvm-${LLVM_VERSION}-dev libncurses5
-cd /opt
-sudo wget https://github.com/llvm/llvm-project/releases/download/llvmorg-11.1.0/clang+llvm-11.1.0-aarch64-linux-gnu.tar.xz
-sudo tar -xvvf clang+llvm-11.1.0-aarch64-linux-gnu.tar.xz
-sudo mv clang+llvm-11.1.0-aarch64-linux-gnu llvm-11.1.0
-sudo rm clang+llvm-11.1.0-aarch64-linux-gnu.tar.xz
 ```
 
 ## Some tips
