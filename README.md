@@ -1,6 +1,7 @@
 # Jetson Nano Developer Kit A02 4GB
 
 ![GitHub Release](https://img.shields.io/github/v/release/kreier/jetson)
+![GitHub commit activity](https://img.shields.io/github/commit-activity/y/kreier/jetson)
 ![GitHub License](https://img.shields.io/github/license/kreier/jetson)
 
 
